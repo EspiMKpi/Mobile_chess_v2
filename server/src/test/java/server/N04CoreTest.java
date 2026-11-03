@@ -18,6 +18,7 @@ import model.GameResult;
 import model.MatchResult;
 import model.MatchStartInfo;
 import model.ObjectWrapper;
+import model.Player;
 import model.PlayerRanking;
 import model.PlayerStat;
 import server.control.GameRoom;
@@ -386,5 +387,36 @@ public class N04CoreTest {
         Assert.assertEquals(4, list.get(3).getId());
         Assert.assertEquals(5, list.get(4).getId());
         Assert.assertEquals(6, list.get(5).getId());
+    }
+
+    @Test
+    public void testDuplicateLoginTakeover() throws Exception {
+        Socket socketA = new Socket("127.0.0.1", TEST_PORT);
+        new ObjectOutputStream(socketA.getOutputStream()).flush();
+
+        Socket socketB = new Socket("127.0.0.1", TEST_PORT);
+        new ObjectOutputStream(socketB.getOutputStream()).flush();
+
+        waitUntil(() -> server.getMyProcess().size() == 2, 3000);
+        ServerCtr.ServerProcessing spA = server.getMyProcess().get(0);
+        ServerCtr.ServerProcessing spB = server.getMyProcess().get(1);
+
+        Player p1 = new Player("user1", "pass");
+        p1.setId(101);
+        spA.setLoggedInPlayer(p1);
+        spA.setStatus(PlayerStat.IDLE);
+        Assert.assertSame(spA, server.findProcess(101));
+
+        // Thiết bị B đăng nhập cùng tài khoản: gỡ phiên cũ và đóng socket cũ của A
+        server.removeProcess(spA);
+        spA.getMySocket().close();
+        spB.setLoggedInPlayer(p1);
+        spB.setStatus(PlayerStat.IDLE);
+
+        waitUntil(() -> server.findProcess(101) == spB, 3000);
+        Assert.assertSame(spB, server.findProcess(101));
+        Assert.assertTrue(spA.getMySocket().isClosed());
+
+        socketB.close();
     }
 }

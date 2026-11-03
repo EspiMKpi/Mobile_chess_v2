@@ -254,25 +254,31 @@ public class ServerCtr {
                         break;
                     }
 
-                    boolean duplicate;
+                    ServerProcessing oldProcess = null;
                     synchronized (myProcess) {
-                        duplicate = findProcess(p.getId()) != null;
-                        if (!duplicate) {
-                            loggedInPlayer = p;
-                            status = PlayerStat.IDLE;
-                            p.setPassword(null);
+                        oldProcess = findProcess(p.getId());
+                        if (oldProcess != null && oldProcess != this) {
+                            removeProcess(oldProcess);
+                        }
+                        loggedInPlayer = p;
+                        status = PlayerStat.IDLE;
+                        p.setPassword(null);
+                    }
+
+                    if (oldProcess != null && oldProcess != this) {
+                        try {
+                            if (oldProcess.getMySocket() != null && !oldProcess.getMySocket().isClosed()) {
+                                oldProcess.getMySocket().close();
+                            }
+                        } catch (IOException ignored) {
                         }
                     }
 
-                    if (duplicate) {
-                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, "logged_in"));
-                    } else {
-                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, p));
-                        if (view != null) {
-                            view.showMessage("Đăng nhập thành công: " + p.getUsername() + " (ID: " + p.getId() + ")");
-                        }
-                        broadcastOnlineList();
+                    sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, p));
+                    if (view != null) {
+                        view.showMessage("Đăng nhập thành công: " + p.getUsername() + " (ID: " + p.getId() + ")");
                     }
+                    broadcastOnlineList();
                     break;
                 }
 
@@ -427,6 +433,7 @@ public class ServerCtr {
         }
 
         public Player getLoggedInPlayer() { return loggedInPlayer; }
+        public void setLoggedInPlayer(Player loggedInPlayer) { this.loggedInPlayer = loggedInPlayer; }
         public String getStatus() { return status; }
         public void setStatus(String status) { this.status = status; }
         public GameRoom getRoom() { return room; }
