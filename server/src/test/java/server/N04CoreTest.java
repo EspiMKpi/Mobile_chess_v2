@@ -12,14 +12,12 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import model.GameResult;
 import model.MatchResult;
 import model.MatchStartInfo;
 import model.ObjectWrapper;
-import model.Player;
 import model.PlayerRanking;
 import model.PlayerStat;
 import server.control.GameRoom;
@@ -43,6 +41,14 @@ public class N04CoreTest {
     public void tearDown() {
         if (server != null) {
             server.stopServer();
+        }
+    }
+
+    private static void waitUntil(java.util.function.BooleanSupplier cond, long timeoutMs) throws InterruptedException {
+        long end = System.currentTimeMillis() + timeoutMs;
+        while (!cond.getAsBoolean()) {
+            if (System.currentTimeMillis() > end) Assert.fail("Hết thời gian chờ điều kiện");
+            Thread.sleep(20);
         }
     }
 
@@ -71,7 +77,7 @@ public class N04CoreTest {
         ObjectInputStream ois = new ObjectInputStream(clientSocket.getInputStream());
 
         // Đợi server accept
-        Thread.sleep(300);
+        waitUntil(() -> server.getMyProcess().size() == 1, 3000);
         Assert.assertEquals(1, server.getMyProcess().size());
 
         // Client gửi GET_ONLINE_LIST
@@ -85,7 +91,7 @@ public class N04CoreTest {
 
         // Đóng client
         clientSocket.close();
-        Thread.sleep(300);
+        waitUntil(() -> server.getMyProcess().isEmpty(), 3000);
         Assert.assertEquals(0, server.getMyProcess().size());
     }
 
@@ -101,17 +107,12 @@ public class N04CoreTest {
         oosB.flush();
         ObjectInputStream oisB = new ObjectInputStream(socketB.getInputStream());
 
-        Thread.sleep(300);
+        waitUntil(() -> server.getMyProcess().size() == 2, 3000);
         Assert.assertEquals(2, server.getMyProcess().size());
 
         ServerCtr.ServerProcessing spA = server.getMyProcess().get(0);
         ServerCtr.ServerProcessing spB = server.getMyProcess().get(1);
 
-        Player pA = new Player("playerA", "passA");
-        pA.setId(101);
-        pA.setName("Player A");
-        spA.getLoggedInPlayer(); // gán thông qua reflection hoặc setLoggedInPlayer
-        // Vì ServerProcessing lưu loggedInPlayer, ta kiểm tra logic GameRoom trực tiếp
         GameRoom room = server.createRoom(spA, spB);
         Assert.assertNotNull(room);
         Assert.assertEquals(PlayerStat.BUSY, spA.getStatus());
@@ -120,7 +121,7 @@ public class N04CoreTest {
 
         // Từ chối thách đấu
         room.receiveChallengeDecision(false);
-        Thread.sleep(200);
+        waitUntil(() -> server.getMyRooms().isEmpty() && spA.getStatus() == PlayerStat.IDLE && spB.getStatus() == PlayerStat.IDLE, 3000);
 
         // Room phải đóng và cả hai trở lại IDLE
         Assert.assertEquals(PlayerStat.IDLE, spA.getStatus());
@@ -146,7 +147,7 @@ public class N04CoreTest {
         Socket socketC = new Socket("127.0.0.1", TEST_PORT);
         new ObjectOutputStream(socketC.getOutputStream()).flush();
 
-        Thread.sleep(300);
+        waitUntil(() -> server.getMyProcess().size() == 3, 3000);
         Assert.assertEquals(3, server.getMyProcess().size());
 
         ServerCtr.ServerProcessing spA = server.getMyProcess().get(0);
@@ -186,7 +187,7 @@ public class N04CoreTest {
         oosB.flush();
         ObjectInputStream oisB = new ObjectInputStream(socketB.getInputStream());
 
-        Thread.sleep(300);
+        waitUntil(() -> server.getMyProcess().size() == 2, 3000);
         ServerCtr.ServerProcessing spA = server.getMyProcess().get(0);
         ServerCtr.ServerProcessing spB = server.getMyProcess().get(1);
 
@@ -270,7 +271,7 @@ public class N04CoreTest {
         Socket socketB = new Socket("127.0.0.1", TEST_PORT);
         new ObjectOutputStream(socketB.getOutputStream()).flush();
 
-        Thread.sleep(300);
+        waitUntil(() -> server.getMyProcess().size() == 2, 3000);
         ServerCtr.ServerProcessing spA = server.getMyProcess().get(0);
         ServerCtr.ServerProcessing spB = server.getMyProcess().get(1);
 
@@ -377,40 +378,7 @@ public class N04CoreTest {
         Collections.shuffle(list);
 
         // Sắp xếp bằng Comparator từ PlayerDAO
-        Collections.sort(list, new Comparator<PlayerRanking>() {
-            @Override
-            public int compare(PlayerRanking a, PlayerRanking b) {
-                int cmp = Float.compare(b.getTotalPoint(), a.getTotalPoint());
-                if (cmp != 0) return cmp;
-
-                cmp = Float.compare(b.getAvgOpponentPoint(), a.getAvgOpponentPoint());
-                if (cmp != 0) return cmp;
-
-                float w1 = a.getAvgMovesWin();
-                float w2 = b.getAvgMovesWin();
-                if (w1 >= 0 && w2 >= 0) {
-                    cmp = Float.compare(w1, w2);
-                    if (cmp != 0) return cmp;
-                } else if (w1 >= 0 && w2 < 0) {
-                    return -1;
-                } else if (w1 < 0 && w2 >= 0) {
-                    return 1;
-                }
-
-                float l1 = a.getAvgMovesLose();
-                float l2 = b.getAvgMovesLose();
-                if (l1 >= 0 && l2 >= 0) {
-                    cmp = Float.compare(l2, l1);
-                    if (cmp != 0) return cmp;
-                } else if (l1 >= 0 && l2 < 0) {
-                    return -1;
-                } else if (l1 < 0 && l2 >= 0) {
-                    return 1;
-                }
-
-                return Integer.compare(a.getId(), b.getId());
-            }
-        });
+        list.sort(PlayerDAO.RANKING_ORDER);
 
         Assert.assertEquals(1, list.get(0).getId());
         Assert.assertEquals(2, list.get(1).getId());

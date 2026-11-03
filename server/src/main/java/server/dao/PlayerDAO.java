@@ -19,6 +19,43 @@ import model.PlayerRanking;
 /** Chủ: N04. Truy vấn tblPlayer (+ điểm, BXH). Xem BLUEPRINT_N04 mục 3.5, 3.6. */
 public class PlayerDAO extends DAO {
 
+    /** Thứ tự BXH: totalPoint DESC -> avgOpponentPoint DESC -> avgMovesWin ASC (-1 cuối) -> avgMovesLose DESC (-1 cuối) -> id ASC. */
+    public static final Comparator<PlayerRanking> RANKING_ORDER = (p1, p2) -> {
+        // 1. totalPoint DESC
+        int cmp = Float.compare(p2.getTotalPoint(), p1.getTotalPoint());
+        if (cmp != 0) return cmp;
+
+        // 2. avgOpponentPoint DESC
+        cmp = Float.compare(p2.getAvgOpponentPoint(), p1.getAvgOpponentPoint());
+        if (cmp != 0) return cmp;
+
+        // 3. avgMovesWin ASC (NULL / -1 xếp cuối)
+        float w1 = p1.getAvgMovesWin();
+        float w2 = p2.getAvgMovesWin();
+        if (w1 >= 0 && w2 >= 0) {
+            cmp = Float.compare(w1, w2);
+            if (cmp != 0) return cmp;
+        } else if (w1 >= 0 && w2 < 0) {
+            return -1;
+        } else if (w1 < 0 && w2 >= 0) {
+            return 1;
+        }
+
+        // 4. avgMovesLose DESC (NULL / -1 xếp cuối)
+        float l1 = p1.getAvgMovesLose();
+        float l2 = p2.getAvgMovesLose();
+        if (l1 >= 0 && l2 >= 0) {
+            cmp = Float.compare(l2, l1);
+            if (cmp != 0) return cmp;
+        } else if (l1 >= 0 && l2 < 0) {
+            return -1;
+        } else if (l1 < 0 && l2 >= 0) {
+            return 1;
+        }
+
+        return Integer.compare(p1.getId(), p2.getId());
+    };
+
     /** Đúng username + password (hash) -> điền id, name, email, tel vào p, trả true. */
     public boolean checkLogin(Player p) {
         if (p == null || p.getUsername() == null || p.getPassword() == null) {
@@ -340,44 +377,7 @@ public class PlayerDAO extends DAO {
         }
 
         // 5. Sắp xếp theo 4 tiêu chí
-        Collections.sort(rankingList, new Comparator<PlayerRanking>() {
-            @Override
-            public int compare(PlayerRanking p1, PlayerRanking p2) {
-                // 1. totalPoint DESC
-                int cmp = Float.compare(p2.getTotalPoint(), p1.getTotalPoint());
-                if (cmp != 0) return cmp;
-
-                // 2. avgOpponentPoint DESC
-                cmp = Float.compare(p2.getAvgOpponentPoint(), p1.getAvgOpponentPoint());
-                if (cmp != 0) return cmp;
-
-                // 3. avgMovesWin ASC (NULL / -1 xếp cuối)
-                float w1 = p1.getAvgMovesWin();
-                float w2 = p2.getAvgMovesWin();
-                if (w1 >= 0 && w2 >= 0) {
-                    cmp = Float.compare(w1, w2);
-                    if (cmp != 0) return cmp;
-                } else if (w1 >= 0 && w2 < 0) {
-                    return -1;
-                } else if (w1 < 0 && w2 >= 0) {
-                    return 1;
-                }
-
-                // 4. avgMovesLose DESC (NULL / -1 xếp cuối)
-                float l1 = p1.getAvgMovesLose();
-                float l2 = p2.getAvgMovesLose();
-                if (l1 >= 0 && l2 >= 0) {
-                    cmp = Float.compare(l2, l1);
-                    if (cmp != 0) return cmp;
-                } else if (l1 >= 0 && l2 < 0) {
-                    return -1;
-                } else if (l1 < 0 && l2 >= 0) {
-                    return 1;
-                }
-
-                return Integer.compare(p1.getId(), p2.getId());
-            }
-        });
+        rankingList.sort(RANKING_ORDER);
 
         return rankingList;
     }
