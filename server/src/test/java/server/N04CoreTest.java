@@ -136,6 +136,45 @@ public class N04CoreTest {
     }
 
     @Test
+    public void testAtomicMatchmaking() throws Exception {
+        Socket socketA = new Socket("127.0.0.1", TEST_PORT);
+        new ObjectOutputStream(socketA.getOutputStream()).flush();
+
+        Socket socketB = new Socket("127.0.0.1", TEST_PORT);
+        new ObjectOutputStream(socketB.getOutputStream()).flush();
+
+        Socket socketC = new Socket("127.0.0.1", TEST_PORT);
+        new ObjectOutputStream(socketC.getOutputStream()).flush();
+
+        Thread.sleep(300);
+        Assert.assertEquals(3, server.getMyProcess().size());
+
+        ServerCtr.ServerProcessing spA = server.getMyProcess().get(0);
+        ServerCtr.ServerProcessing spB = server.getMyProcess().get(1);
+        ServerCtr.ServerProcessing spC = server.getMyProcess().get(2);
+
+        // Không thể tự thách chính mình
+        Assert.assertNull(server.tryCreateRoom(spA, spA));
+
+        // Thách thành công giữa A và B
+        GameRoom room = server.tryCreateRoom(spA, spB);
+        Assert.assertNotNull(room);
+        Assert.assertEquals(1, server.getMyRooms().size());
+
+        // C thách B khi B đang bận -> phải trả về null
+        Assert.assertNull(server.tryCreateRoom(spC, spB));
+        Assert.assertEquals(1, server.getMyRooms().size());
+
+        // A thách C khi A đang bận -> phải trả về null
+        Assert.assertNull(server.tryCreateRoom(spA, spC));
+
+        room.closeRoom();
+        socketA.close();
+        socketB.close();
+        socketC.close();
+    }
+
+    @Test
     public void testGameRoomMatchFlowAndColorSwap() throws Exception {
         Socket socketA = new Socket("127.0.0.1", TEST_PORT);
         ObjectOutputStream oosA = new ObjectOutputStream(socketA.getOutputStream());

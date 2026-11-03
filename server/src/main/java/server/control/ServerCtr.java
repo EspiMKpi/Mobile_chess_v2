@@ -31,6 +31,9 @@ public class ServerCtr {
     private final ArrayList<ServerProcessing> myProcess = new ArrayList<>();
     private final ArrayList<GameRoom> myRooms = new ArrayList<>();
 
+    /** Khóa riêng cho ghép cặp: chỉ bao quanh kiểm tra trạng thái + createRoom. KHÔNG lấy khóa GameRoom bên trong. */
+    private final Object matchmakingLock = new Object();
+
     private final PlayerDAO playerDAO = new PlayerDAO();
     private final MatchDAO matchDAO = new MatchDAO();
 
@@ -102,6 +105,16 @@ public class ServerCtr {
     public void removeProcess(ServerProcessing sp) {
         synchronized (myProcess) {
             myProcess.remove(sp);
+        }
+    }
+
+    /** Kiểm tra cả hai rảnh rồi tạo phòng trong cùng một khóa. Trả null nếu không ghép được. */
+    public GameRoom tryCreateRoom(ServerProcessing a, ServerProcessing b) {
+        synchronized (matchmakingLock) {
+            if (a == null || b == null || a == b) return null;
+            if (a.getRoom() != null || b.getRoom() != null) return null;
+            if (PlayerStat.BUSY.equals(a.getStatus()) || PlayerStat.BUSY.equals(b.getStatus())) return null;
+            return createRoom(a, b);
         }
     }
 
@@ -190,8 +203,8 @@ public class ServerCtr {
         private ObjectOutputStream oos;
         private ObjectInputStream ois;
         private Player loggedInPlayer;
-        private String status = PlayerStat.IDLE;
-        private GameRoom room;
+        private volatile String status = PlayerStat.IDLE;
+        private volatile GameRoom room;
 
         public ServerProcessing(Socket s) {
             this.mySocket = s;
@@ -296,15 +309,19 @@ public class ServerCtr {
                 }
 
                 case ObjectWrapper.SEND_CHALLENGE: {
+                    if (loggedInPlayer == null || !(w.getData() instanceof PlayerStat)) {
+                        break;
+                    }
                     PlayerStat target = (PlayerStat) w.getData();
-                    ServerProcessing b = (target != null) ? findProcess(target.getId()) : null;
-                    if (b == null || PlayerStat.BUSY.equals(b.getStatus()) || PlayerStat.BUSY.equals(this.status)) {
+                    ServerProcessing b = findProcess(target.getId());
+                    GameRoom newRoom = tryCreateRoom(this, b);
+                    if (newRoom == null) {
                         sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_BUSY, target));
                     } else {
-                        createRoom(this, b);
                         float pt = playerDAO.getTotalPoint(loggedInPlayer.getId());
                         PlayerStat inviterStat = new PlayerStat(loggedInPlayer, pt, PlayerStat.BUSY);
                         b.sendData(new ObjectWrapper(ObjectWrapper.SERVER_INFORM_CHALLENGE, inviterStat));
+                        broadcastOnlineList();
                     }
                     break;
                 }

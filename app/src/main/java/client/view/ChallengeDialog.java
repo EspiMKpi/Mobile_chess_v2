@@ -3,6 +3,7 @@ package client.view;
 import android.app.Dialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -28,6 +29,7 @@ public class ChallengeDialog extends DialogFragment implements DataReceiver {
 
     private final ClientCtr myControl = ClientCtr.getInstance();
     private PlayerStat target;
+    private boolean cancelling;
 
     public static ChallengeDialog newInstance(PlayerStat target) {
         Bundle args = new Bundle();
@@ -57,10 +59,23 @@ public class ChallengeDialog extends DialogFragment implements DataReceiver {
         String targetName = (target != null)
                 ? (target.getName() != null && !target.getName().isEmpty() ? target.getName() : target.getUsername())
                 : "";
-        return new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.title_challenge)
                 .setMessage(getString(R.string.msg_challenge_waiting, targetName))
+                .setNegativeButton(R.string.btn_cancel, null)
                 .create();
+
+        dialog.setOnShowListener(d -> {
+            Button btnCancel = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+            btnCancel.setOnClickListener(v -> {
+                cancelling = true;
+                btnCancel.setEnabled(false);
+                dialog.setMessage("Đang hủy lời mời...");
+                myControl.sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_DECISION, false));
+            });
+        });
+
+        return dialog;
     }
 
     @Override
@@ -77,6 +92,8 @@ public class ChallengeDialog extends DialogFragment implements DataReceiver {
 
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
+        if (!isAdded()) return;
+
         switch (data.getPerformative()) {
             case ObjectWrapper.REPLY_CHALLENGE_BUSY:
                 toast("Đối thủ đang bận");
@@ -84,7 +101,7 @@ public class ChallengeDialog extends DialogFragment implements DataReceiver {
                 break;
 
             case ObjectWrapper.REPLY_CHALLENGE_REJECT:
-                toast("Đối thủ đã từ chối");
+                toast(cancelling ? "Đã hủy lời mời" : "Đối thủ đã từ chối");
                 dismissAllowingStateLoss();
                 break;
 
