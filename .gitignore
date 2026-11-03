@@ -1,0 +1,28 @@
+# Compiled class files
+*.class
+bin/
+out/
+build/
+
+# Dependencies
+lib/*.jar
+
+# Database & local configurations with secrets
+config/db.properties
+!config/db.properties.example
+
+# Build scripts temp files
+sources.txt
+
+# IDE / Editor files
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# OS / temp files
+.DS_Store
+Thumbs.db
+*.log
