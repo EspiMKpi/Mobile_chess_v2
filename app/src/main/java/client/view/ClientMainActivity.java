@@ -1,9 +1,13 @@
 package client.view;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
 
+import java.util.concurrent.Executors;
+
+import model.IPAddress;
 import model.ObjectWrapper;
 import vn.edu.ptit.mobilechess.R;
 
@@ -36,14 +40,48 @@ public class ClientMainActivity extends BaseActivity {
     }
 
     private void connect() {
-        // TODO(N04, M1): myControl.setServerAddress(new IPAddress(host, port));
-        //   chạy myControl.openConnection() trên luồng nền; xong runOnUiThread:
-        //   true -> startActivity(LoginActivity) · false -> toast("Không kết nối được server")
+        String host = txtServerHost.getText().toString().trim();
+        String portStr = txtServerPort.getText().toString().trim();
+
+        if (host.isEmpty()) {
+            txtServerHost.setError("Vui lòng nhập địa chỉ server");
+            return;
+        }
+
+        int port;
+        try {
+            port = Integer.parseInt(portStr);
+            if (port <= 0 || port > 65535) {
+                txtServerPort.setError("Cổng không hợp lệ");
+                return;
+            }
+        } catch (NumberFormatException e) {
+            txtServerPort.setError("Cổng phải là số nguyên");
+            return;
+        }
+
+        btnConnect.setEnabled(false);
+        myControl.setServerAddress(new IPAddress(host, port));
+
+        Executors.newSingleThreadExecutor().execute(() -> {
+            boolean ok = myControl.openConnection();
+            runOnUiThread(() -> {
+                btnConnect.setEnabled(true);
+                if (ok) {
+                    startActivity(new Intent(this, LoginActivity.class));
+                } else {
+                    toast("Không kết nối được server");
+                }
+            });
+        });
     }
 
     /** Đưa về trạng thái chưa kết nối (sau đăng xuất / mất kết nối). */
     public void resetClient() {
-        // TODO(N04, M1)
+        myControl.closeConnection();
+        if (btnConnect != null) {
+            btnConnect.setEnabled(true);
+        }
     }
 
     @Override

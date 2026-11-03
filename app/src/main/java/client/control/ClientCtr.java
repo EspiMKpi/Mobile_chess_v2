@@ -2,17 +2,22 @@ package client.control;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
+import android.widget.Toast;
 
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import client.view.ClientMainActivity;
 import client.view.DataReceiver;
 import model.IPAddress;
 import model.ObjectWrapper;
@@ -58,11 +63,17 @@ public class ClientCtr {
 
     /** Gọi một lần ở ClientMainActivity.onCreate - dùng để mở lại màn hình kết nối khi mất mạng. */
     public void init(Context context) {
-        this.appContext = context.getApplicationContext();
+        if (context != null) {
+            this.appContext = context.getApplicationContext();
+        }
     }
 
     public void setServerAddress(IPAddress serverAddress) {
         this.serverAddress = serverAddress;
+    }
+
+    public IPAddress getServerAddress() {
+        return serverAddress;
     }
 
     /**
@@ -70,18 +81,71 @@ public class ClientCtr {
      * tạo oos TRƯỚC ois, khởi động myListening. Trả true nếu kết nối được.
      */
     public boolean openConnection() {
-        // TODO(N04, M1)
-        return false;
+        if (serverAddress == null) {
+            return false;
+        }
+        try {
+            closing = false;
+            if (mySocket != null && !mySocket.isClosed()) {
+                try {
+                    mySocket.close();
+                } catch (IOException ignored) {
+                }
+            }
+
+            mySocket = new Socket();
+            mySocket.connect(new InetSocketAddress(serverAddress.getHost(), serverAddress.getPort()), 5000);
+            mySocket.setKeepAlive(true);
+
+            // Tạo OOS trước OIS
+            oos = new ObjectOutputStream(mySocket.getOutputStream());
+            oos.flush();
+            ois = new ObjectInputStream(mySocket.getInputStream());
+
+            myListening = new ClientListening();
+            myListening.start();
+            return true;
+        } catch (Exception e) {
+            closing = true;
+            try {
+                if (mySocket != null) {
+                    mySocket.close();
+                }
+            } catch (IOException ignored) {
+            }
+            return false;
+        }
     }
 
     /** Đăng xuất: closing = true, đóng socket (ClientListening tự thoát), xóa myFunction. */
     public boolean closeConnection() {
-        // TODO(N04, M1)
-        return false;
+        closing = true;
+        myPlayer = null;
+        try {
+            if (oos != null) {
+                try {
+                    oos.close();
+                } catch (IOException ignored) {
+                }
+            }
+            if (ois != null) {
+                try {
+                    ois.close();
+                } catch (IOException ignored) {
+                }
+            }
+            if (mySocket != null && !mySocket.isClosed()) {
+                mySocket.close();
+            }
+        } catch (IOException ignored) {
+        }
+        myListening = null;
+        myFunction.clear();
+        return true;
     }
 
     public boolean isConnected() {
-        return mySocket != null && mySocket.isConnected() && !mySocket.isClosed();
+        return mySocket != null && mySocket.isConnected() && !mySocket.isClosed() && !closing;
     }
 
     /**
@@ -89,9 +153,23 @@ public class ClientCtr {
      * (1 luồng duy nhất -> giữ đúng thứ tự gói tin). Trả về false nếu chưa kết nối.
      */
     public boolean sendData(Object obj) {
-        // TODO(N04, M1): if (oos == null) return false;
-        //   sendExecutor.execute(() -> { oos.writeObject(obj); oos.flush(); oos.reset(); });
-        return false;
+        if (!isConnected() || oos == null) {
+            return false;
+        }
+        sendExecutor.execute(() -> {
+            try {
+                synchronized (this) {
+                    if (oos != null) {
+                        oos.writeObject(obj);
+                        oos.flush();
+                        oos.reset();
+                    }
+                }
+            } catch (IOException e) {
+                // Lỗi ghi socket
+            }
+        });
+        return true;
     }
 
     public List<ObjectWrapper> getActiveFunction() {
@@ -100,11 +178,13 @@ public class ClientCtr {
 
     /** Tiện ích: đăng ký màn hình r nhận mã code. */
     public void register(int code, DataReceiver r) {
+        if (r == null) return;
         myFunction.add(new ObjectWrapper(code, r));
     }
 
     /** Tiện ích: gỡ mọi đăng ký của màn hình r (gọi trong onDestroy). */
     public void unregister(DataReceiver r) {
+        if (r == null) return;
         myFunction.removeIf(f -> f.getData() == r);
     }
 
@@ -119,11 +199,32 @@ public class ClientCtr {
     private class ClientListening extends Thread {
         @Override
         public void run() {
-            // TODO(N04, M1): while (true) { ObjectWrapper d = (ObjectWrapper) ois.readObject();
-            //   for (ObjectWrapper fto : myFunction) if (fto.getPerformative() == d.getPerformative())
-            //       mainHandler.post(() -> ((DataReceiver) fto.getData()).receivedDataProcessing(d)); }
-            // IOException && !closing -> mainHandler.post: Toast "Mất kết nối server",
-            //   mở ClientMainActivity với FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK (appContext)
+            try {
+                while (!closing && ois != null) {
+                    ObjectWrapper d = (ObjectWrapper) ois.readObject();
+                    if (d == null) continue;
+
+                    for (ObjectWrapper fto : myFunction) {
+                        if (fto.getPerformative() == d.getPerformative()) {
+                            Object receiver = fto.getData();
+                            if (receiver instanceof DataReceiver) {
+                                mainHandler.post(() -> ((DataReceiver) receiver).receivedDataProcessing(d));
+                            }
+                        }
+                    }
+                }
+            } catch (IOException | ClassNotFoundException e) {
+                if (!closing) {
+                    mainHandler.post(() -> {
+                        if (appContext != null) {
+                            Toast.makeText(appContext, "Mất kết nối server", Toast.LENGTH_SHORT).show();
+                            Intent intent = new Intent(appContext, ClientMainActivity.class);
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            appContext.startActivity(intent);
+                        }
+                    });
+                }
+            }
         }
     }
 }

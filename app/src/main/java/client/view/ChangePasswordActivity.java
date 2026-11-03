@@ -26,11 +26,44 @@ public class ChangePasswordActivity extends BaseActivity {
     }
 
     private void save() {
-        // TODO(N04, M2): MK mới khớp xác nhận, khác MK cũ -> sendData(CHANGE_PASSWORD, new String[]{old, new})
+        String oldPass = txtOldPassword.getText().toString();
+        String newPass = txtNewPassword.getText().toString();
+        String confirmPass = txtConfirmPassword.getText().toString();
+
+        if (oldPass.isEmpty()) {
+            txtOldPassword.setError("Vui lòng nhập mật khẩu hiện tại");
+            return;
+        }
+        if (newPass.isEmpty()) {
+            txtNewPassword.setError("Vui lòng nhập mật khẩu mới");
+            return;
+        }
+        if (newPass.length() < 6) {
+            txtNewPassword.setError("Mật khẩu mới tối thiểu 6 ký tự");
+            return;
+        }
+        if (!newPass.equals(confirmPass)) {
+            txtConfirmPassword.setError("Mật khẩu xác nhận không khớp");
+            return;
+        }
+        if (newPass.equals(oldPass)) {
+            txtNewPassword.setError("Mật khẩu mới không được trùng mật khẩu cũ");
+            return;
+        }
+
+        myControl.sendData(new ObjectWrapper(ObjectWrapper.CHANGE_PASSWORD, new String[]{oldPass, newPass}));
     }
 
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
-        // TODO(N04, M2): "ok" -> toast, finish() · "false" -> "Mật khẩu hiện tại không đúng"
+        if (data.getPerformative() == ObjectWrapper.REPLY_CHANGE_PASSWORD) {
+            if ("ok".equals(data.getData())) {
+                toast("Đổi mật khẩu thành công!");
+                finish();
+            } else {
+                txtOldPassword.setError("Mật khẩu hiện tại không đúng");
+                toast("Mật khẩu hiện tại không đúng");
+            }
+        }
     }
 }

@@ -2,6 +2,7 @@ package client.view;
 
 import android.app.Dialog;
 import android.os.Bundle;
+import android.widget.Button;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -10,6 +11,8 @@ import androidx.fragment.app.DialogFragment;
 
 import client.control.ClientCtr;
 import model.GameResult;
+import model.MatchResult;
+import model.ObjectWrapper;
 import vn.edu.ptit.mobilechess.R;
 
 /**
@@ -43,18 +46,64 @@ public class ContinueDialog extends DialogFragment {
 
     /** CHECKMATE "Chiếu bí!" · STALEMATE "Hết nước đi – Hòa" · TIMEOUT "Hết giờ 30 giây" · RESIGN "Xin thua" · DISCONNECT "Đối thủ mất kết nối". */
     private String describe(GameResult r) {
-        // TODO(N04, M4): lý do + "BẠN THẮNG (+1.0 điểm)" / "HÒA (+0.5)" / "BẠN THUA (+0)"
-        return r == null ? "" : r.getReason();
+        if (r == null) return "";
+
+        String reasonStr;
+        String reason = r.getReason();
+        if (GameResult.CHECKMATE.equalsIgnoreCase(reason)) {
+            reasonStr = "Chiếu bí!";
+        } else if (GameResult.STALEMATE.equalsIgnoreCase(reason)) {
+            reasonStr = "Hết nước đi – Hòa";
+        } else if (GameResult.TIMEOUT.equalsIgnoreCase(reason)) {
+            reasonStr = "Hết giờ 30 giây";
+        } else if (GameResult.RESIGN.equalsIgnoreCase(reason)) {
+            reasonStr = "Xin thua";
+        } else if (GameResult.DISCONNECT.equalsIgnoreCase(reason)) {
+            reasonStr = "Đối thủ mất kết nối";
+        } else {
+            reasonStr = (reason != null ? reason : "");
+        }
+
+        String outcomeStr;
+        String res = r.getResult();
+        if (MatchResult.WIN.equalsIgnoreCase(res)) {
+            outcomeStr = "BẠN THẮNG (+1.0 điểm)";
+        } else if (MatchResult.DRAW.equalsIgnoreCase(res)) {
+            outcomeStr = "HÒA (+0.5 điểm)";
+        } else {
+            outcomeStr = "BẠN THUA (+0 điểm)";
+        }
+
+        return reasonStr + "\n" + outcomeStr + "\n\nBạn có muốn tiếp tục ván mới và đổi bên không?";
     }
 
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        return new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.title_end_game)
                 .setMessage(describe(result))
-                .setPositiveButton(R.string.btn_continue, null)   // TODO(N04, M4)
-                .setNegativeButton(R.string.btn_stop, null)       // TODO(N04, M4)
+                .setPositiveButton(R.string.btn_continue, null)
+                .setNegativeButton(R.string.btn_stop, null)
                 .create();
+
+        dialog.setOnShowListener(d -> {
+            Button btnContinue = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            Button btnStop = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+
+            btnContinue.setOnClickListener(v -> {
+                btnContinue.setEnabled(false);
+                btnStop.setEnabled(false);
+                dialog.setMessage("Đang chờ đối thủ phản hồi...");
+                myControl.sendData(new ObjectWrapper(ObjectWrapper.REQUEST_CONTINUE_MATCH, true));
+            });
+
+            btnStop.setOnClickListener(v -> {
+                myControl.sendData(new ObjectWrapper(ObjectWrapper.REQUEST_CONTINUE_MATCH, false));
+                dismissAllowingStateLoss();
+            });
+        });
+
+        return dialog;
     }
 }

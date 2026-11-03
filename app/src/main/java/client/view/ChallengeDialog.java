@@ -1,7 +1,9 @@
 package client.view;
 
 import android.app.Dialog;
+import android.content.Intent;
 import android.os.Bundle;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -9,6 +11,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
 import client.control.ClientCtr;
+import model.MatchStartInfo;
 import model.ObjectWrapper;
 import model.PlayerStat;
 import vn.edu.ptit.mobilechess.R;
@@ -42,15 +45,21 @@ public class ChallengeDialog extends DialogFragment implements DataReceiver {
         myControl.register(ObjectWrapper.REPLY_CHALLENGE_BUSY, this);
         myControl.register(ObjectWrapper.REPLY_CHALLENGE_REJECT, this);
         myControl.register(ObjectWrapper.SERVER_START_MATCH, this);
-        // TODO(N04, M4): if (savedInstanceState == null) myControl.sendData(new ObjectWrapper(SEND_CHALLENGE, target));
+
+        if (savedInstanceState == null && target != null) {
+            myControl.sendData(new ObjectWrapper(ObjectWrapper.SEND_CHALLENGE, target));
+        }
     }
 
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
+        String targetName = (target != null)
+                ? (target.getName() != null && !target.getName().isEmpty() ? target.getName() : target.getUsername())
+                : "";
         return new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.title_challenge)
-                .setMessage(getString(R.string.msg_challenge_waiting, target.getUsername()))
+                .setMessage(getString(R.string.msg_challenge_waiting, targetName))
                 .create();
     }
 
@@ -60,9 +69,38 @@ public class ChallengeDialog extends DialogFragment implements DataReceiver {
         super.onDestroy();
     }
 
+    private void toast(String msg) {
+        if (getContext() != null) {
+            Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+        }
+    }
+
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
-        // TODO(N04, M4): BUSY -> "Đối thủ đang bận" · REJECT -> "Đối thủ đã từ chối" -> dismiss()
-        //   SERVER_START_MATCH (MatchStartInfo) -> startActivity(MatchPlayActivity + EXTRA_MY_COLOR, EXTRA_OPPONENT), dismiss()
+        switch (data.getPerformative()) {
+            case ObjectWrapper.REPLY_CHALLENGE_BUSY:
+                toast("Đối thủ đang bận");
+                dismissAllowingStateLoss();
+                break;
+
+            case ObjectWrapper.REPLY_CHALLENGE_REJECT:
+                toast("Đối thủ đã từ chối");
+                dismissAllowingStateLoss();
+                break;
+
+            case ObjectWrapper.SERVER_START_MATCH:
+                if (data.getData() instanceof MatchStartInfo) {
+                    MatchStartInfo info = (MatchStartInfo) data.getData();
+                    Intent intent = new Intent(requireContext(), MatchPlayActivity.class);
+                    intent.putExtra(MatchPlayActivity.EXTRA_MY_COLOR, info.getMyColor());
+                    intent.putExtra(MatchPlayActivity.EXTRA_OPPONENT, info.getOpponent());
+                    startActivity(intent);
+                }
+                dismissAllowingStateLoss();
+                break;
+
+            default:
+                break;
+        }
     }
 }

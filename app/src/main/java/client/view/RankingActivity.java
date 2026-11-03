@@ -1,11 +1,17 @@
 package client.view;
 
 import android.os.Bundle;
+import android.view.View;
+import android.widget.TextView;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.ArrayList;
+
+import client.view.adapter.RankingAdapter;
 import model.ObjectWrapper;
+import model.PlayerRanking;
 import vn.edu.ptit.mobilechess.R;
 
 /**
@@ -15,6 +21,8 @@ import vn.edu.ptit.mobilechess.R;
 public class RankingActivity extends BaseActivity {
 
     private RecyclerView tblRanking;
+    private TextView txtEmpty;
+    private RankingAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,13 +33,35 @@ public class RankingActivity extends BaseActivity {
 
         tblRanking = findViewById(R.id.recyclerList);
         tblRanking.setLayoutManager(new LinearLayoutManager(this));
+        txtEmpty = findViewById(R.id.txtEmpty);
         findViewById(R.id.btnClose).setOnClickListener(v -> finish());
+
+        adapter = new RankingAdapter();
+        tblRanking.setAdapter(adapter);
 
         myControl.sendData(new ObjectWrapper(ObjectWrapper.GET_RANKING, null));
     }
 
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
-        // TODO(N04, M5): RankingAdapter (item_ranking.xml)
+        if (data.getPerformative() == ObjectWrapper.REPLY_RANKING) {
+            if (data.getData() instanceof ArrayList) {
+                @SuppressWarnings("unchecked")
+                ArrayList<PlayerRanking> list = (ArrayList<PlayerRanking>) data.getData();
+                if (list == null || list.isEmpty()) {
+                    txtEmpty.setText("Chưa có dữ liệu bảng xếp hạng");
+                    txtEmpty.setVisibility(View.VISIBLE);
+                    tblRanking.setVisibility(View.GONE);
+                } else {
+                    txtEmpty.setVisibility(View.GONE);
+                    tblRanking.setVisibility(View.VISIBLE);
+                    adapter.setRankings(list);
+                }
+            } else {
+                txtEmpty.setText("Chưa có dữ liệu bảng xếp hạng");
+                txtEmpty.setVisibility(View.VISIBLE);
+                tblRanking.setVisibility(View.GONE);
+            }
+        }
     }
 }

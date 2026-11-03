@@ -1,6 +1,7 @@
 package client.view;
 
 import android.os.Bundle;
+import android.util.Patterns;
 import android.widget.EditText;
 import android.widget.TextView;
 
@@ -32,17 +33,54 @@ public class EditPlayerActivity extends BaseActivity {
         if (p != null) {
             txtUsername.setText(p.getUsername());
             txtName.setText(p.getName());
-            txtEmail.setText(p.getEmail());
-            txtTel.setText(p.getTel());
+            txtEmail.setText(p.getEmail() != null ? p.getEmail() : "");
+            txtTel.setText(p.getTel() != null ? p.getTel() : "");
         }
     }
 
     private void update() {
-        // TODO(N04, M2): validateInput(); sendData(EDIT_PLAYER, player với name/email/tel mới)
+        String name = txtName.getText().toString().trim();
+        String email = txtEmail.getText().toString().trim();
+        String tel = txtTel.getText().toString().trim();
+
+        if (name.isEmpty()) {
+            txtName.setError("Vui lòng nhập họ và tên");
+            return;
+        }
+        if (!email.isEmpty() && !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            txtEmail.setError("Email không đúng định dạng");
+            return;
+        }
+        if (!tel.isEmpty() && tel.length() < 8) {
+            txtTel.setError("Số điện thoại không hợp lệ");
+            return;
+        }
+
+        Player updatedPlayer = new Player();
+        updatedPlayer.setName(name);
+        updatedPlayer.setEmail(email.isEmpty() ? null : email);
+        updatedPlayer.setTel(tel.isEmpty() ? null : tel);
+
+        myControl.sendData(new ObjectWrapper(ObjectWrapper.EDIT_PLAYER, updatedPlayer));
     }
 
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
-        // TODO(N04, M2): "ok" -> cập nhật getMyPlayer(), toast, finish()
+        if (data.getPerformative() == ObjectWrapper.REPLY_EDIT_PLAYER) {
+            if ("ok".equals(data.getData())) {
+                Player p = myControl.getMyPlayer();
+                if (p != null) {
+                    p.setName(txtName.getText().toString().trim());
+                    String email = txtEmail.getText().toString().trim();
+                    p.setEmail(email.isEmpty() ? null : email);
+                    String tel = txtTel.getText().toString().trim();
+                    p.setTel(tel.isEmpty() ? null : tel);
+                }
+                toast("Cập nhật thông tin thành công!");
+                finish();
+            } else {
+                toast("Cập nhật thông tin thất bại");
+            }
+        }
     }
 }

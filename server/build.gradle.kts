@@ -11,11 +11,17 @@ tasks.withType<JavaCompile>().configureEach {
 dependencies {
     implementation(project(":common"))
     runtimeOnly(libs.mysql.connector.j)
+    testImplementation(libs.junit)
+    testImplementation(libs.mysql.connector.j)
 }
 
 application {
     mainClass.set("server.ServerRun")
     applicationDefaultJvmArgs = listOf("-Dfile.encoding=UTF-8")
+}
+
+tasks.test {
+    useJUnit()
 }
 
 // gradlew :server:run chạy với thư mục làm việc server/ -> đọc server/config/db.properties

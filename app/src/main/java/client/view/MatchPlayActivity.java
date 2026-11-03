@@ -6,8 +6,12 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.fragment.app.Fragment;
 
+import model.GameResult;
+import model.MatchResult;
 import model.ObjectWrapper;
+import model.Player;
 import model.PlayerStat;
 import vn.edu.ptit.mobilechess.R;
 
@@ -30,6 +34,7 @@ public class MatchPlayActivity extends BaseActivity {
 
     private String myColor;
     private PlayerStat opponent;
+    private boolean inGame = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +44,9 @@ public class MatchPlayActivity extends BaseActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         myColor = getIntent().getStringExtra(EXTRA_MY_COLOR);
+        if (myColor == null) {
+            myColor = MatchResult.WHITE;
+        }
         opponent = (PlayerStat) getIntent().getSerializableExtra(EXTRA_OPPONENT);
 
         lblOpponentInfo = findViewById(R.id.lblOpponentInfo);
@@ -58,18 +66,47 @@ public class MatchPlayActivity extends BaseActivity {
             }
         });
 
-        // TODO(N04, M4): cập nhật lblOpponentInfo, lblMyColor theo opponent, myColor
+        updateLabels();
         boardView.reset(myColor);
+    }
+
+    private void updateLabels() {
+        String oppName = (opponent != null)
+                ? (opponent.getName() != null && !opponent.getName().isEmpty() ? opponent.getName() : opponent.getUsername())
+                : "Đối thủ";
+        float oppPt = (opponent != null) ? opponent.getTotalPoint() : 0f;
+        String oppColor = MatchResult.WHITE.equalsIgnoreCase(myColor) ? "ĐEN" : "TRẮNG";
+        lblOpponentInfo.setText(String.format("Đối thủ: %s (Điểm: %.1f) | Quân đối thủ: %s", oppName, oppPt, oppColor));
+
+        Player me = myControl.getMyPlayer();
+        String myName = (me != null) ? me.getName() : "Bạn";
+        String myColorDetail = MatchResult.WHITE.equalsIgnoreCase(myColor) ? "TRẮNG (Đi trước)" : "ĐEN (Đi sau)";
+        lblMyColor.setText(String.format("Bạn: %s | Quân của bạn: %s", myName, myColorDetail));
     }
 
     /** Đang chơi -> xác nhận -> sendData(QUIT_GAME, null); ván đã kết thúc -> bỏ qua (chờ ContinueDialog). */
     private void quit() {
-        // TODO(N04, M4)
+        if (inGame) {
+            confirm("Bạn có chắc chắn muốn xin thua và thoát ván đấu?", () -> {
+                myControl.sendData(new ObjectWrapper(ObjectWrapper.QUIT_GAME, null));
+            });
+        }
     }
 
     /** SERVER_RESTART_MATCH_SWAP_COLOR: đổi màu, cập nhật nhãn, đóng ContinueDialog, boardView.reset(myColor). */
     public void swapColor(String newColor) {
-        // TODO(N04, M4)
+        this.myColor = newColor;
+        this.inGame = true;
+        dismissContinueDialog();
+        updateLabels();
+        boardView.reset(myColor);
+    }
+
+    private void dismissContinueDialog() {
+        Fragment dialog = getSupportFragmentManager().findFragmentByTag(ContinueDialog.TAG);
+        if (dialog instanceof ContinueDialog) {
+            ((ContinueDialog) dialog).dismissAllowingStateLoss();
+        }
     }
 
     @Override
@@ -79,10 +116,31 @@ public class MatchPlayActivity extends BaseActivity {
             case ObjectWrapper.REPLY_MOVE_ILLEGAL:
                 boardView.onServerMessage(data);
                 break;
+
+            case ObjectWrapper.SERVER_END_GAME:
+                inGame = false;
+                boardView.setLocked(true);
+                if (data.getData() instanceof GameResult) {
+                    ContinueDialog.newInstance((GameResult) data.getData())
+                            .show(getSupportFragmentManager(), ContinueDialog.TAG);
+                }
+                break;
+
+            case ObjectWrapper.SERVER_RESTART_MATCH_SWAP_COLOR:
+                if (data.getData() instanceof String) {
+                    swapColor((String) data.getData());
+                }
+                break;
+
+            case ObjectWrapper.SERVER_END_SESSION_MATCH:
+                dismissContinueDialog();
+                if ("OPPONENT_STOP".equals(data.getData())) {
+                    toast("Đối thủ đã dừng chơi");
+                }
+                finish();
+                break;
+
             default:
-                // TODO(N04, M4): SERVER_END_GAME -> boardView.setLocked(true); ContinueDialog.newInstance(GameResult).show(...)
-                //   SERVER_RESTART_MATCH_SWAP_COLOR -> swapColor((String) data.getData())
-                //   SERVER_END_SESSION_MATCH -> "OPPONENT_STOP" thì toast; đóng ContinueDialog; finish()
                 break;
         }
     }
