@@ -241,6 +241,11 @@ public class N04CoreTest {
         Assert.assertEquals(ObjectWrapper.SERVER_RESTART_MATCH_SWAP_COLOR, restartB.getPerformative());
         Assert.assertEquals(MatchResult.BLACK, restartB.getData());
 
+        // Kết thúc ván 2 trước khi quyết định dừng
+        room.endGame(spA, GameResult.RESIGN);
+        oisA.readObject(); // SERVER_END_GAME cho A
+        oisB.readObject(); // SERVER_END_GAME cho B
+
         // Dừng chơi (A chọn dừng)
         room.receiveContinueDecision(spA, false);
         Assert.assertFalse(room.isPlaying());
@@ -253,6 +258,54 @@ public class N04CoreTest {
         Assert.assertEquals(ObjectWrapper.SERVER_END_SESSION_MATCH, stopB.getPerformative());
         Assert.assertEquals("OPPONENT_STOP", stopB.getData());
 
+        socketA.close();
+        socketB.close();
+    }
+
+    @Test
+    public void testGameRoomStateValidation() throws Exception {
+        Socket socketA = new Socket("127.0.0.1", TEST_PORT);
+        new ObjectOutputStream(socketA.getOutputStream()).flush();
+
+        Socket socketB = new Socket("127.0.0.1", TEST_PORT);
+        new ObjectOutputStream(socketB.getOutputStream()).flush();
+
+        Thread.sleep(300);
+        ServerCtr.ServerProcessing spA = server.getMyProcess().get(0);
+        ServerCtr.ServerProcessing spB = server.getMyProcess().get(1);
+
+        GameRoom room = server.tryCreateRoom(spA, spB);
+        Assert.assertNotNull(room);
+
+        // Bắt đầu ván
+        room.receiveChallengeDecision(spB, true);
+        Assert.assertTrue(room.isPlaying());
+        model.Match match1 = room.getCurrentMatch();
+
+        // Đang chơi: gọi receiveChallengeDecision -> không ảnh hưởng trận đấu
+        room.receiveChallengeDecision(spB, true);
+        Assert.assertSame(match1, room.getCurrentMatch());
+
+        // Đang chơi: gọi receiveContinueDecision(spA, false) -> phòng không được đóng giữa ván
+        room.receiveContinueDecision(spA, false);
+        Assert.assertTrue(room.isPlaying());
+
+        // Kết thúc ván
+        room.endGame(spA, GameResult.RESIGN);
+        Assert.assertFalse(room.isPlaying());
+
+        // Một người gửi tiếp tục 2 lần -> không đủ 2 người nên màu chưa đổi và chưa sang ván mới
+        room.receiveContinueDecision(spA, true);
+        room.receiveContinueDecision(spA, true);
+        Assert.assertFalse(room.isPlaying());
+        Assert.assertEquals(spA, room.getBlackPlayer());
+
+        // Người thứ hai bấm tiếp tục -> đủ 2 phiếu -> bắt đầu ván mới
+        room.receiveContinueDecision(spB, true);
+        Assert.assertTrue(room.isPlaying());
+        Assert.assertEquals(spA, room.getWhitePlayer()); // Đã đổi màu
+
+        room.closeRoom();
         socketA.close();
         socketB.close();
     }

@@ -1,6 +1,8 @@
 package server.control;
 
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
 import model.GameResult;
 import model.Match;
@@ -23,17 +25,22 @@ import server.dao.PlayerDAO;
 public class GameRoom {
 
     private final ServerCtr myServer;
+    private final ServerCtr.ServerProcessing challenger;   // người thách (ván 1 cầm Đen)
+    private final ServerCtr.ServerProcessing challenged;   // người được thách (ván 1 cầm Trắng)
     private ServerCtr.ServerProcessing whitePlayer;
     private ServerCtr.ServerProcessing blackPlayer;
     private Match currentMatch;
-    private int continueCount;
+    private final Set<ServerCtr.ServerProcessing> continueVotes = new HashSet<>();
     private boolean playing;               // true từ startGame/ván mới tới endGame
+    private boolean closed;
     private final ChessReferee referee;
 
     /** Tạo khi A thách đấu B đang rảnh. Ván 1: người thách đấu (A) cầm Đen, người được thách (B) cầm Trắng. */
     public GameRoom(ServerCtr myServer, ServerCtr.ServerProcessing challenger,
                     ServerCtr.ServerProcessing challenged) {
         this.myServer = myServer;
+        this.challenger = challenger;
+        this.challenged = challenged;
         this.blackPlayer = challenger;
         this.whitePlayer = challenged;
         this.referee = new ChessReferee(this);
@@ -41,17 +48,35 @@ public class GameRoom {
 
     /** B trả lời lời mời (REPLY_CHALLENGE_DECISION). true -> startGame(); false -> closeRoom() + REPLY_CHALLENGE_REJECT cho A. */
     public synchronized void receiveChallengeDecision(boolean accept) {
-        if (!accept) {
-            ServerCtr.ServerProcessing challenger = blackPlayer;
-            PlayerStat challengedStat = (whitePlayer != null && whitePlayer.getLoggedInPlayer() != null)
-                    ? new PlayerStat(whitePlayer.getLoggedInPlayer(), 0f, PlayerStat.IDLE)
+        receiveChallengeDecision(challenged, accept);
+    }
+
+    /** Chỉ hợp lệ khi đang chờ trả lời (chưa có ván nào). */
+    public synchronized void receiveChallengeDecision(ServerCtr.ServerProcessing sender, boolean accept) {
+        if (closed || currentMatch != null) return;          // đã vào ván / đã đóng -> bỏ qua
+        if (sender == challenged) {
+            if (accept) {
+                startGame();
+                return;
+            }
+            // Từ chối: closeRoom + REPLY_CHALLENGE_REJECT cho challenger
+            ServerCtr.ServerProcessing ch = challenger;
+            PlayerStat challengedStat = (challenged != null && challenged.getLoggedInPlayer() != null)
+                    ? new PlayerStat(challenged.getLoggedInPlayer(), 0f, PlayerStat.IDLE)
                     : null;
             closeRoom();
-            if (challenger != null) {
-                challenger.sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_REJECT, challengedStat));
+            if (ch != null) {
+                ch.sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_REJECT, challengedStat));
             }
-        } else {
-            startGame();
+        } else if (sender == challenger && !accept) {
+            // Người thách hủy lời mời: báo cả hai rồi đóng phòng
+            if (challenged != null) {
+                challenged.sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_REJECT, null));
+            }
+            if (challenger != null) {
+                challenger.sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_REJECT, null));
+            }
+            closeRoom();
         }
     }
 
@@ -85,7 +110,7 @@ public class GameRoom {
 
     private void beginNewMatch() {
         currentMatch = new Match(new Date());
-        continueCount = 0;
+        continueVotes.clear();
         playing = true;
         if (referee != null) {
             referee.reset();
@@ -164,8 +189,10 @@ public class GameRoom {
         }
     }
 
-    /** REQUEST_CONTINUE_MATCH. Đủ 2 "Tiếp tục" -> swapColor + ván mới; có 1 "Dừng" -> closeRoom + END_SESSION. */
+    /** REQUEST_CONTINUE_MATCH. Đủ 2 người chơi khác nhau bỏ phiếu "Tiếp tục" -> swapColor + ván mới; có 1 "Dừng" -> closeRoom + END_SESSION. */
     public synchronized void receiveContinueDecision(ServerCtr.ServerProcessing sp, boolean accept) {
+        if (closed || playing || currentMatch == null) return;          // chỉ hợp lệ giữa 2 ván
+        if (sp != whitePlayer && sp != blackPlayer) return;
         if (!accept) {
             if (sp != null) {
                 sp.sendData(new ObjectWrapper(ObjectWrapper.SERVER_END_SESSION_MATCH, "STOP"));
@@ -175,17 +202,18 @@ public class GameRoom {
                 opponent.sendData(new ObjectWrapper(ObjectWrapper.SERVER_END_SESSION_MATCH, "OPPONENT_STOP"));
             }
             closeRoom();
-        } else {
-            continueCount++;
-            if (continueCount == 2) {
-                swapColor();
-                beginNewMatch();
-                if (whitePlayer != null) {
-                    whitePlayer.sendData(new ObjectWrapper(ObjectWrapper.SERVER_RESTART_MATCH_SWAP_COLOR, MatchResult.WHITE));
-                }
-                if (blackPlayer != null) {
-                    blackPlayer.sendData(new ObjectWrapper(ObjectWrapper.SERVER_RESTART_MATCH_SWAP_COLOR, MatchResult.BLACK));
-                }
+            return;
+        }
+
+        continueVotes.add(sp);
+        if (continueVotes.size() == 2) {
+            swapColor();
+            beginNewMatch();
+            if (whitePlayer != null) {
+                whitePlayer.sendData(new ObjectWrapper(ObjectWrapper.SERVER_RESTART_MATCH_SWAP_COLOR, MatchResult.WHITE));
+            }
+            if (blackPlayer != null) {
+                blackPlayer.sendData(new ObjectWrapper(ObjectWrapper.SERVER_RESTART_MATCH_SWAP_COLOR, MatchResult.BLACK));
             }
         }
     }
@@ -198,6 +226,8 @@ public class GameRoom {
 
     /** referee.stopTimer(); 2 bên về IDLE, setRoom(null); myServer.removeRoom(this). */
     public synchronized void closeRoom() {
+        if (closed) return;
+        closed = true;
         playing = false;
         if (referee != null) {
             referee.stopTimer();

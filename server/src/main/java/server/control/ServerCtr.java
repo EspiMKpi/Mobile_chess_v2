@@ -328,7 +328,7 @@ public class ServerCtr {
 
                 case ObjectWrapper.REPLY_CHALLENGE_DECISION: {
                     if (room != null && w.getData() instanceof Boolean) {
-                        room.receiveChallengeDecision((Boolean) w.getData());
+                        room.receiveChallengeDecision(this, (Boolean) w.getData());
                     }
                     break;
                 }
