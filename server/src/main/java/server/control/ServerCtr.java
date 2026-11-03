@@ -219,9 +219,16 @@ public class ServerCtr {
                 ois = new ObjectInputStream(mySocket.getInputStream());
 
                 while (true) {
-                    ObjectWrapper w = (ObjectWrapper) ois.readObject();
-                    if (w == null) continue;
-                    handleMessage(w);
+                    Object o = ois.readObject();
+                    if (!(o instanceof ObjectWrapper)) continue;
+                    try {
+                        handleMessage((ObjectWrapper) o);
+                    } catch (RuntimeException e) {
+                        System.err.println("ServerProcessing.handleMessage error: " + e);
+                        if (view != null) {
+                            view.showMessage("Lỗi xử lý gói tin: " + e);
+                        }
+                    }
                 }
             } catch (IOException | ClassNotFoundException e) {
                 // Client ngắt kết nối hoặc lỗi mạng
@@ -233,16 +240,33 @@ public class ServerCtr {
         private void handleMessage(ObjectWrapper w) {
             switch (w.getPerformative()) {
                 case ObjectWrapper.LOGIN_USER: {
+                    if (loggedInPlayer != null) {
+                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, "logged_in"));
+                        break;
+                    }
+                    if (!(w.getData() instanceof Player)) {
+                        break;
+                    }
                     Player p = (Player) w.getData();
                     boolean ok = playerDAO.checkLogin(p);
                     if (!ok) {
                         sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, "false"));
-                    } else if (findProcess(p.getId()) != null) {
+                        break;
+                    }
+
+                    boolean duplicate;
+                    synchronized (myProcess) {
+                        duplicate = findProcess(p.getId()) != null;
+                        if (!duplicate) {
+                            loggedInPlayer = p;
+                            status = PlayerStat.IDLE;
+                            p.setPassword(null);
+                        }
+                    }
+
+                    if (duplicate) {
                         sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, "logged_in"));
                     } else {
-                        loggedInPlayer = p;
-                        status = PlayerStat.IDLE;
-                        p.setPassword(null);
                         sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, p));
                         if (view != null) {
                             view.showMessage("Đăng nhập thành công: " + p.getUsername() + " (ID: " + p.getId() + ")");
@@ -253,6 +277,9 @@ public class ServerCtr {
                 }
 
                 case ObjectWrapper.REGISTER_USER: {
+                    if (!(w.getData() instanceof Player)) {
+                        break;
+                    }
                     Player p = (Player) w.getData();
                     boolean ok = playerDAO.registerPlayer(p);
                     sendData(new ObjectWrapper(ObjectWrapper.REPLY_REGISTER_USER, ok ? "ok" : "false"));
@@ -263,7 +290,7 @@ public class ServerCtr {
                 }
 
                 case ObjectWrapper.EDIT_PLAYER: {
-                    if (loggedInPlayer != null) {
+                    if (loggedInPlayer != null && w.getData() instanceof Player) {
                         Player p = (Player) w.getData();
                         p.setId(loggedInPlayer.getId());
                         boolean ok = playerDAO.editPlayer(p);
@@ -282,8 +309,12 @@ public class ServerCtr {
                 case ObjectWrapper.CHANGE_PASSWORD: {
                     if (loggedInPlayer != null && w.getData() instanceof String[]) {
                         String[] arr = (String[]) w.getData();
-                        boolean ok = playerDAO.changePassword(loggedInPlayer.getId(), arr[0], arr[1]);
-                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHANGE_PASSWORD, ok ? "ok" : "false"));
+                        if (arr.length == 2 && arr[0] != null && arr[1] != null) {
+                            boolean ok = playerDAO.changePassword(loggedInPlayer.getId(), arr[0], arr[1]);
+                            sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHANGE_PASSWORD, ok ? "ok" : "false"));
+                        } else {
+                            sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHANGE_PASSWORD, "false"));
+                        }
                     } else {
                         sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHANGE_PASSWORD, "false"));
                     }
