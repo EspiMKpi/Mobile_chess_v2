@@ -1,0 +1,4 @@
+# gradlew phải giữ LF để chạy được trên Linux/macOS; file .bat giữ CRLF
+gradlew text eol=lf
+*.bat text eol=crlf
+*.jar binary

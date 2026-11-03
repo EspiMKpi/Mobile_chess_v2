@@ -1,4 +1,0 @@
-# Sao chép thành config/db.properties rồi điền mật khẩu thật (file đó KHÔNG được commit).
-url=jdbc:mysql://localhost:3306/chess?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Ho_Chi_Minh
-user=root
-password=CHANGE_ME

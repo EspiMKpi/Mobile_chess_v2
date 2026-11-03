@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chủ: N04. Chuỗi của N11 nằm ở strings_n11.xml -->
+<resources>
+    <string name="app_name">Cờ Vua Trực Tuyến</string>
+
+    <!-- ClientMainActivity -->
+    <string name="title_connect">Kết nối máy chủ</string>
+    <string name="label_host">Địa chỉ server</string>
+    <string name="label_port">Cổng</string>
+    <string name="default_host">10.0.2.2</string>
+    <string name="default_port">9999</string>
+    <string name="btn_connect">Kết nối</string>
+    <string name="hint_host">Máy ảo: 10.0.2.2 · Điện thoại thật: IP LAN của máy tính</string>
+
+    <!-- Hình 2.1 – 2.5 -->
+    <string name="title_login">Đăng nhập hệ thống</string>
+    <string name="title_register">Đăng ký tài khoản</string>
+    <string name="title_edit_player">Thông tin người chơi</string>
+    <string name="title_change_password">Đổi mật khẩu</string>
+    <string name="title_history">Lịch sử các trận đấu</string>
+    <string name="label_app_banner">CỜ VUA TRỰC TUYẾN</string>
+    <string name="label_username">Tên đăng nhập</string>
+    <string name="label_password">Mật khẩu</string>
+    <string name="label_confirm_password">Xác nhận mật khẩu</string>
+    <string name="label_name">Họ và tên</string>
+    <string name="label_email">Email</string>
+    <string name="label_tel">Số điện thoại</string>
+    <string name="label_old_password">Mật khẩu hiện tại</string>
+    <string name="label_new_password">Mật khẩu mới</string>
+    <string name="label_confirm_new_password">Xác nhận mật khẩu mới</string>
+    <string name="btn_login">Đăng nhập</string>
+    <string name="btn_go_register">Đăng ký tài khoản</string>
+    <string name="btn_register">Đăng ký ngay</string>
+    <string name="btn_cancel">Hủy bỏ</string>
+    <string name="btn_update">Cập nhật</string>
+    <string name="btn_close">Đóng</string>
+    <string name="btn_save_password">Lưu mật khẩu</string>
+    <string name="empty_history">Chưa có trận đấu nào</string>
+
+    <!-- Hình 3.1 + BXH -->
+    <string name="title_online">Người chơi trực tuyến</string>
+    <string name="title_ranking">Bảng xếp hạng</string>
+    <string name="btn_edit_profile">Sửa thông tin</string>
+    <string name="btn_change_password">Đổi mật khẩu</string>
+    <string name="btn_history">Lịch sử đấu</string>
+    <string name="btn_ranking">Bảng xếp hạng</string>
+    <string name="btn_play_ai">Chơi với máy</string>
+    <string name="btn_logout">Đăng xuất</string>
+    <string name="btn_challenge">Thách đấu</string>
+    <string name="hint_auto_update">(tự động cập nhật)</string>
+    <string name="hint_pick_idle">Chạm chọn một người chơi RẢNH rồi bấm Thách đấu</string>
+    <string name="greeting">Xin chào: %1$s</string>
+
+    <!-- Hình 4.1 – 4.4 -->
+    <string name="title_match">Phòng thi đấu</string>
+    <string name="btn_quit_match">Thoát ván (xin thua)</string>
+    <string name="title_challenge">Gửi lời mời thách đấu</string>
+    <string name="msg_challenge_waiting">Đang gửi lời mời tới: %1$s\nVui lòng chờ đối thủ phản hồi…</string>
+    <string name="title_invite">Lời mời thách đấu</string>
+    <string name="msg_invite">Người chơi: %1$s (Tổng điểm: %2$.1f)\nvừa mời bạn chơi cờ vua!</string>
+    <string name="btn_accept">Đồng ý (OK)</string>
+    <string name="btn_reject">Từ chối (Reject)</string>
+    <string name="title_end_game">Kết thúc ván đấu</string>
+    <string name="btn_continue">Tiếp tục</string>
+    <string name="btn_stop">Dừng chơi</string>
+</resources>

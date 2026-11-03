@@ -1,33 +1,49 @@
-# HỢP ĐỒNG CHUNG N04 ↔ N11 (Phase 0)
+# HỢP ĐỒNG CHUNG N04 ↔ N11 (Phase 0) – SERVER JAVA (PC) + CLIENT ANDROID
 
-> Cả hai bắt đầu code lại từ đầu. Các lớp dưới đây là **điểm nối giữa hai người** – tạo đúng package, tên lớp, chữ ký public như sau rồi mới làm phần riêng.
+> Hệ thống: **1 server Java chạy trên máy tính (kèm MySQL)** và **nhiều client là ứng dụng Android (Java)** – client chỉ chạy trên điện thoại/máy ảo Android.
+> Cả hai bắt đầu code lại từ đầu. Các lớp/tệp dưới đây là **điểm nối giữa hai người** – tạo đúng module, package, tên lớp, chữ ký public như sau rồi mới làm phần riêng.
 > Ai là chủ file nào: `.github/CODEOWNERS`. Đổi bất cứ thứ gì ở đây → báo người kia + PR riêng.
 > Chi tiết phần N04: `docs/BLUEPRINT_N04.md` · phần N11: `docs/HUONG_DAN_N11.md`.
 
-## 1. Cấu trúc package
+## 1. Cấu trúc project (một project Android Studio, 3 module Gradle)
 
 ```
-src/
-  model/                      dùng chung client + server (Serializable)
-  server/ServerRun, server/view, server/control, server/dao
-  client/ClientRun, client/control, client/view, client/view/ai
-  com/chess/engine/**         thư viện luật cờ + AI (N11)
+Mobile_chess/
+  settings.gradle.kts, build.gradle.kts, gradle/      (Android Studio sinh ra – cả 2 cùng review)
+  common/   thư viện Java thuần, dùng chung :server + :app
+    src/main/java/model/**                  lớp thực thể + gói tin (Serializable)
+    src/main/java/com/chess/engine/**       luật cờ + AI (N11)
+  server/   ứng dụng Java chạy trên PC (Swing ServerMainFrm, ServerSocket, JDBC MySQL)
+    src/main/java/server/{ServerRun, view, control, dao}
+  app/      ứng dụng Android (Java)
+    src/main/AndroidManifest.xml
+    src/main/java/client/control/**         ClientCtr (+ ClientListening)
+    src/main/java/client/view/**            Activity + DialogFragment
+    src/main/java/client/view/ai/**         chơi với máy (N11)
+    src/main/res/**                         layout, drawable, values
 db/01_core.sql (N04), db/02_match_move.sql (N11)
 ```
 
+Project đã được dựng sẵn ở repo code `Mobile_chess_v2` (bước M0) – mở thư mục gốc bằng Android Studio là dùng được; cấu hình build xem mục 4.
+
 ## 2. Quy tắc bắt buộc
-1. Mã lệnh: N04 dùng 1–29, N11 dùng 30–39. `SERVER_END_GAME` (21) dùng chung, data = `GameResult`.
-2. Ô cờ `0 = a8 … 63 = h1`; màu `"WHITE"`/`"BLACK"`; phong cấp `"Q"|"R"|"B"|"N"|null`.
-3. Khóa: mọi trạng thái phòng đấu + trọng tài đồng bộ trên **một** khóa là đối tượng `GameRoom` (method `synchronized` ở GameRoom, `synchronized (room)` ở ChessReferee).
-4. `GameRoom.endGame` idempotent; ChessReferee kiểm tra `room.isPlaying()` trước khi xử lý.
-5. Client: `ClientListening` chuyển gói tin lên EDT trước khi gọi form; `ChessBoardPanel` không tự đăng ký `myFunction`, MatchPlayFrm chuyển tiếp mã 31/32.
-6. `MatchMoveDAO.insertMoves` dùng chung Connection của `MatchDAO.saveMatch`, không commit/rollback.
+1. **Mã lệnh**: N04 dùng 1–29, N11 dùng 30–39. `SERVER_END_GAME` (21) dùng chung, data = `GameResult`.
+2. **Dữ liệu**: ô cờ `0 = a8 … 63 = h1`; màu `"WHITE"`/`"BLACK"`; phong cấp `"Q"|"R"|"B"|"N"|null`.
+3. **`:common` chỉ dùng Java thuần** (`java.base`): không Swing/AWT, không JDBC, không `android.*` – vì chạy trên cả PC lẫn Android. Mọi lớp gửi qua Socket nằm trong `:common`, `implements Serializable`, `serialVersionUID = 1L`. Cả server và app phụ thuộc cùng module nên tuần tự hóa khớp nhau.
+4. **Khóa phía server**: mọi trạng thái phòng đấu + trọng tài đồng bộ trên **một** khóa là đối tượng `GameRoom` (method `synchronized` ở GameRoom, `synchronized (room)` ở ChessReferee). `GameRoom.endGame` idempotent; ChessReferee kiểm tra `room.isPlaying()` trước khi xử lý.
+5. **Luồng phía Android**: `ClientCtr` là singleton (`ClientCtr.getInstance()`); mọi I/O Socket chạy trên luồng nền; gói tin nhận được chuyển sang **main thread** (Handler + `Looper.getMainLooper()`) rồi mới gọi `receivedDataProcessing`. Không bao giờ đọc/ghi Socket trên main thread (Android ném `NetworkOnMainThreadException`).
+6. **Vòng đời Activity**: màn hình đăng ký `myFunction` trong `onCreate` và gỡ trong `onDestroy`. `ChessBoardView` **không** tự đăng ký – `MatchPlayActivity` nhận mã 31/32 và chuyển tiếp. Mọi Activity khóa màn hình dọc (`screenOrientation="portrait"`) để không bị tạo lại khi xoay.
+7. **Manifest & tài nguyên**: `AndroidManifest.xml` (N04) khai báo sẵn mọi Activity của cả 2 ngay ở M0 (mục 4). Tài nguyên của N11 đặt tiền tố `n11_` (layout, drawable) và chuỗi trong `res/values/strings_n11.xml`; N04 dùng các file còn lại – không ai sửa file tài nguyên của người kia.
+8. **Kết nối mạng**: server lắng nghe cổng `9999` trên PC. Máy ảo Android trỏ tới PC bằng `10.0.2.2`; điện thoại thật dùng IP LAN của PC (cùng Wi-Fi, mở cổng 9999 trên Windows Firewall).
+9. `MatchMoveDAO.insertMoves` dùng chung Connection của `MatchDAO.saveMatch`, không commit/rollback.
 
 ## 3. Mã nguồn hợp đồng
 
 Phần `// TODO(...)` là việc của chủ file; mọi chữ ký public phải giữ nguyên.
 
-### `src/model/ObjectWrapper.java`
+### 3.1 Module `:common` và `:server` (không đổi so với bản trước, chỉ đổi đường dẫn)
+
+#### `common/src/main/java/model/ObjectWrapper.java`
 
 ```java
 package model;
@@ -98,7 +114,7 @@ public class ObjectWrapper implements Serializable {
 }
 ```
 
-### `src/model/Player.java`
+#### `common/src/main/java/model/Player.java`
 
 ```java
 package model;
@@ -138,7 +154,7 @@ public class Player implements Serializable {
 }
 ```
 
-### `src/model/PlayerStat.java`
+#### `common/src/main/java/model/PlayerStat.java`
 
 ```java
 package model;
@@ -173,7 +189,7 @@ public class PlayerStat extends Player {
 }
 ```
 
-### `src/model/PlayerRanking.java`
+#### `common/src/main/java/model/PlayerRanking.java`
 
 ```java
 package model;
@@ -200,7 +216,7 @@ public class PlayerRanking extends Player {
 }
 ```
 
-### `src/model/Match.java`
+#### `common/src/main/java/model/Match.java`
 
 ```java
 package model;
@@ -238,7 +254,7 @@ public class Match implements Serializable {
 }
 ```
 
-### `src/model/MatchResult.java`
+#### `common/src/main/java/model/MatchResult.java`
 
 ```java
 package model;
@@ -279,7 +295,7 @@ public class MatchResult implements Serializable {
 }
 ```
 
-### `src/model/MatchStartInfo.java`
+#### `common/src/main/java/model/MatchStartInfo.java`
 
 ```java
 package model;
@@ -302,7 +318,7 @@ public class MatchStartInfo implements Serializable {
 }
 ```
 
-### `src/model/IPAddress.java`
+#### `common/src/main/java/model/IPAddress.java`
 
 ```java
 package model;
@@ -327,7 +343,7 @@ public class IPAddress implements Serializable {
 }
 ```
 
-### `src/model/MatchMove.java`
+#### `common/src/main/java/model/MatchMove.java`
 
 ```java
 package model;
@@ -365,7 +381,7 @@ public class MatchMove implements Serializable {
 }
 ```
 
-### `src/model/MoveRequest.java`
+#### `common/src/main/java/model/MoveRequest.java`
 
 ```java
 package model;
@@ -391,7 +407,7 @@ public class MoveRequest implements Serializable {
 }
 ```
 
-### `src/model/MoveInfo.java`
+#### `common/src/main/java/model/MoveInfo.java`
 
 ```java
 package model;
@@ -420,7 +436,7 @@ public class MoveInfo implements Serializable {
 }
 ```
 
-### `src/model/GameResult.java`
+#### `common/src/main/java/model/GameResult.java`
 
 ```java
 package model;
@@ -456,7 +472,9 @@ public class GameResult implements Serializable {
 }
 ```
 
-### `src/server/control/ServerCtr.java`
+### 3.2 Phía server
+
+#### `server/src/main/java/server/control/ServerCtr.java`
 
 ```java
 package server.control;
@@ -502,7 +520,7 @@ public class ServerCtr {
             //   khi mất kết nối & room != null: room.endGame(đối thủ, GameResult.DISCONNECT)
         }
 
-        /** Gửi gói tin về client này (được ChessReferee của N11 gọi). */
+        /** Gửi gói tin về client này (được ChessReferee của N11 gọi, kể cả từ luồng Timer). */
         public synchronized void sendData(Object obj) {
             // TODO(N04): oos.writeObject(obj); oos.flush();
         }
@@ -516,7 +534,7 @@ public class ServerCtr {
 }
 ```
 
-### `src/server/control/GameRoom.java`
+#### `server/src/main/java/server/control/GameRoom.java`
 
 ```java
 package server.control;
@@ -601,7 +619,7 @@ public class GameRoom {
 }
 ```
 
-### `src/server/control/ChessReferee.java`
+#### `server/src/main/java/server/control/ChessReferee.java`
 
 ```java
 package server.control;
@@ -674,7 +692,7 @@ public class ChessReferee {
 }
 ```
 
-### `src/server/control/MoveTimeoutTask.java`
+#### `server/src/main/java/server/control/MoveTimeoutTask.java`
 
 ```java
 package server.control;
@@ -697,7 +715,7 @@ public class MoveTimeoutTask extends TimerTask {
 }
 ```
 
-### `src/server/dao/DAO.java`
+#### `server/src/main/java/server/dao/DAO.java`
 
 ```java
 package server.dao;
@@ -733,7 +751,7 @@ public class DAO {
 }
 ```
 
-### `src/server/dao/MatchDAO.java`
+#### `server/src/main/java/server/dao/MatchDAO.java`
 
 ```java
 package server.dao;
@@ -756,7 +774,7 @@ public class MatchDAO extends DAO {
 }
 ```
 
-### `src/server/dao/MatchMoveDAO.java`
+#### `server/src/main/java/server/dao/MatchMoveDAO.java`
 
 ```java
 package server.dao;
@@ -780,60 +798,117 @@ public class MatchMoveDAO {
 }
 ```
 
-### `src/client/control/ClientCtr.java`
+### 3.3 Phía Android (`:app`)
+
+#### `app/src/main/java/client/control/ClientCtr.java`
 
 ```java
 package client.control;
 
-import java.util.ArrayList;
+import android.os.Handler;
+import android.os.Looper;
+
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import model.ObjectWrapper;
 
 /**
- * Chủ: N04. Bộ điều khiển phía Client (Socket, ClientListening, danh sách myFunction).
- * Phase 0 chỉ chốt sendData() mà ChessBoardPanel của N11 cần gọi.
+ * Chủ: N04. Bộ điều khiển phía Client Android - SINGLETON, sống suốt vòng đời ứng dụng
+ * (Activity bị tạo/hủy liên tục nhưng kết nối Socket phải giữ nguyên).
+ *  - Mọi I/O Socket chạy trên luồng nền (Android cấm mạng trên main thread).
+ *  - ClientListening (inner class) đọc gói tin rồi chuyển sang main thread qua mainHandler
+ *    trước khi gọi receivedDataProcessing() của màn hình đã đăng ký.
+ * Phase 0 chỉ chốt các hàm mà phần của N11 (ChessBoardView) gọi.
  */
 public class ClientCtr {
 
-    private final ArrayList<ObjectWrapper> myFunction = new ArrayList<>();
+    private static ClientCtr instance;
 
-    // TODO(N04): openConnection(), closeConnection(), ClientListening (inner class) ...
+    private final CopyOnWriteArrayList<ObjectWrapper> myFunction = new CopyOnWriteArrayList<>();
+    private final ExecutorService sendExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    /** Gửi gói tin lên Server. */
+    private ClientCtr() {
+    }
+
+    public static synchronized ClientCtr getInstance() {
+        if (instance == null) {
+            instance = new ClientCtr();
+        }
+        return instance;
+    }
+
+    // TODO(N04): setServerAddress(IPAddress), openConnection() (chạy trên luồng nền),
+    //            closeConnection(), ClientListening ... - xem docs/BLUEPRINT_N04.md mục 4.1
+
+    /**
+     * Gửi gói tin lên Server. Gọi được từ main thread: việc ghi Socket được đẩy sang sendExecutor
+     * (1 luồng duy nhất -> giữ đúng thứ tự gói tin). Trả về false nếu chưa kết nối.
+     */
     public boolean sendData(Object obj) {
-        // TODO(N04)
+        // TODO(N04): if (oos == null) return false;
+        //            sendExecutor.execute(() -> { oos.writeObject(obj); oos.flush(); oos.reset(); });
         return false;
     }
 
-    public ArrayList<ObjectWrapper> getActiveFunction() {
+    public List<ObjectWrapper> getActiveFunction() {
         return myFunction;
     }
 }
 ```
 
-### `src/client/view/ChessBoardPanel.java`
+#### `app/src/main/java/client/view/DataReceiver.java`
 
 ```java
 package client.view;
 
-import javax.swing.JPanel;
+import model.ObjectWrapper;
 
-import client.control.ClientCtr;
+/** Chủ: N04. Mọi Activity/Dialog nhận gói tin từ Server cài đặt interface này (luôn được gọi trên main thread). */
+public interface DataReceiver {
+    void receivedDataProcessing(ObjectWrapper data);
+}
+```
+
+#### `app/src/main/java/client/view/ChessBoardView.java`
+
+```java
+package client.view;
+
+import android.content.Context;
+import android.util.AttributeSet;
+import android.widget.LinearLayout;
+
 import model.ObjectWrapper;
 
 /**
- * Chủ: N11. Panel bàn cờ nhúng giữa MatchPlayFrm (N04): vẽ bàn từ FEN, chọn quân + ô đích,
- * PromotionDialog, gửi SEND_MOVE, biên bản, ĐỒNG HỒ 30s (nhãn đồng hồ nằm trong panel này), "Chiếu!".
- * Mọi phương thức public đều được MatchPlayFrm gọi trên luồng Swing (EDT).
+ * Chủ: N11. View bàn cờ online, được đặt trong layout của MatchPlayActivity (N04):
+ *     <client.view.ChessBoardView
+ *         android:id="@+id/boardView"
+ *         android:layout_width="match_parent"
+ *         android:layout_height="0dp"
+ *         android:layout_weight="1" />
+ * Gồm: bàn cờ 8x8 vẽ từ FEN (chạm chọn quân + ô đích), PromotionDialog, gửi SEND_MOVE,
+ * biên bản nước đi, đồng hồ 30 giây, nhãn "Chiếu!".
+ * Gửi nước đi: ClientCtr.getInstance().sendData(new ObjectWrapper(ObjectWrapper.SEND_MOVE, new MoveRequest(from, to, promo)));
+ * Mọi phương thức public đều được MatchPlayActivity gọi trên main thread.
  */
-public class ChessBoardPanel extends JPanel {
+public class ChessBoardView extends LinearLayout {
 
-    private final ClientCtr myControl;
     private String myColor;
     private boolean locked = true;
 
-    public ChessBoardPanel(ClientCtr myControl) {
-        this.myControl = myControl;
+    public ChessBoardView(Context context) {
+        this(context, null);
+    }
+
+    public ChessBoardView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        setOrientation(VERTICAL);
+        // TODO(N11): inflate R.layout.n11_view_chess_board vào this
     }
 
     /** Gọi khi nhận SERVER_START_MATCH và SERVER_RESTART_MATCH_SWAP_COLOR. myColor = "WHITE" | "BLACK". */
@@ -842,7 +917,7 @@ public class ChessBoardPanel extends JPanel {
         // TODO(N11): bàn cờ chuẩn, xoay khi cầm Đen, xóa biên bản, đồng hồ 30s, mở khóa nếu cầm Trắng
     }
 
-    /** MatchPlayFrm chuyển tiếp SERVER_INFORM_MOVE và REPLY_MOVE_ILLEGAL vào đây. */
+    /** MatchPlayActivity chuyển tiếp SERVER_INFORM_MOVE và REPLY_MOVE_ILLEGAL vào đây. */
     public void onServerMessage(ObjectWrapper data) {
         // TODO(N11)
     }
@@ -851,26 +926,91 @@ public class ChessBoardPanel extends JPanel {
     public void setLocked(boolean locked) {
         this.locked = locked;
     }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        setLocked(true);            // Activity đóng -> dừng đồng hồ, tránh rò rỉ
+        super.onDetachedFromWindow();
+    }
 }
 ```
 
-### `src/client/view/ai/AISetupDialog.java`
+#### `app/src/main/java/client/view/ai/AISetupDialog.java`
 
 ```java
 package client.view.ai;
 
-import javax.swing.JDialog;
-import javax.swing.JFrame;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.DialogFragment;
 
 /**
- * Chủ: N11. Hộp thoại thiết lập ván với máy (hình 3.1 báo cáo N11).
- * OnlineListFrm (N04) chỉ gọi: new AISetupDialog(this).setVisible(true);
+ * Chủ: N11. Hộp thoại thiết lập ván với máy (Giao diện 3.1 báo cáo N11).
+ * OnlineListActivity (N04) chỉ gọi đúng một dòng: AISetupDialog.open(this);
  */
-public class AISetupDialog extends JDialog {
+public class AISetupDialog extends DialogFragment {
 
-    public AISetupDialog(JFrame owner) {
-        super(owner, "Thiết lập ván với máy", true);
-        // TODO(N11): chọn Người/Máy cho Trắng/Đen, độ sâu 1-6 -> mở AIMatchFrm
+    public static final String TAG = "AISetupDialog";
+
+    public static void open(AppCompatActivity host) {
+        new AISetupDialog().show(host.getSupportFragmentManager(), TAG);
     }
+
+    // TODO(N11): onCreateDialog(): chọn Người/Máy cho Trắng/Đen, độ sâu 1-6 (mặc định 3)
+    //            -> startActivity(new Intent(requireContext(), AIMatchActivity.class) + extras)
 }
 ```
+
+#### `app/src/main/AndroidManifest.xml`
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chủ: N04. Khai báo SẴN toàn bộ Activity của cả 2 người ở M0 để N11 không phải sửa file này. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.MobileChess">
+
+        <activity android:name="client.view.ClientMainActivity"
+            android:exported="true" android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name="client.view.LoginActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.RegisterActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.OnlineListActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.EditPlayerActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.ChangePasswordActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.PlayerHistoryActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.RankingActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.MatchPlayActivity" android:screenOrientation="portrait" />
+        <!-- N11 -->
+        <activity android:name="client.view.ai.AIMatchActivity" android:screenOrientation="portrait" />
+    </application>
+</manifest>
+```
+
+## 4. Build file (đã dựng sẵn trong repo code `Mobile_chess_v2`)
+
+Project được dựng theo đúng cấu hình của Android Studio trên máy nhóm, build thử thành công `:common:build`, `:server:build`, `:app:assembleDebug`:
+
+| File | Nội dung chính |
+|---|---|
+| `settings.gradle.kts` | `include(":common", ":server", ":app")`, kho `google()` + `mavenCentral()` |
+| `gradle/libs.versions.toml` | AGP **9.4.1**, appcompat 1.6.1, material 1.10.0, activity 1.8.0, constraintlayout 2.1.4, recyclerview 1.1.0, mysql-connector-j 9.1.0, junit 4.13.2 |
+| `gradle/wrapper/gradle-wrapper.properties` | Gradle **9.6.0** |
+| `common/build.gradle.kts` | `java-library`, `options.release = 17`, UTF-8, `testImplementation(junit)` |
+| `server/build.gradle.kts` | `application` (`mainClass = server.ServerRun`), `implementation(project(":common"))`, `runtimeOnly(mysql-connector-j)`; `run` chạy với thư mục làm việc `server/` |
+| `app/build.gradle.kts` | `com.android.application`, `namespace = applicationId = vn.edu.ptit.mobilechess`, `compileSdk = release(37)`, `minSdk 24`, `targetSdk 37`, Java 17, `implementation(project(":common"))` + androidx |
+| `local.properties` | `sdk.dir=C:/Users/.../Android/Sdk` (dùng `/`, **không** commit) |
+
+Lệnh:
+- Server: `gradlew :server:run` (hoặc Run `server.ServerRun` trong Android Studio). Cấu hình DB: chép `server/config/db.properties.example` thành `server/config/db.properties`.
+- App: mở thư mục gốc bằng Android Studio, chọn cấu hình `app` → Run lên máy ảo / điện thoại.
+- Lớp `R` của app nằm trong package `vn.edu.ptit.mobilechess` (namespace) – Activity ở package `client.view` phải `import vn.edu.ptit.mobilechess.R;`.
+- Thêm thư viện mới: khai báo trong `gradle/libs.versions.toml` (file dùng chung – cả 2 cùng review).

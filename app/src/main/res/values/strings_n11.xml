@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chủ: N11. Chuỗi riêng của phần nước đi / AI. -->
+<resources>
+    <string name="n11_title_ai_match">Luyện tập với máy</string>
+    <string name="n11_ai_todo">Ván với máy – N11 sẽ hoàn thiện (Giao diện 3.2)</string>
+</resources>

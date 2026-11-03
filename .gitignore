@@ -1,18 +1,18 @@
-# Compiled class files
-*.class
-bin/
-out/
+# Gradle / Android build output
+.gradle/
 build/
+.kotlin/
+captures/
+*.apk
+*.aab
+*.class
 
-# Dependencies
-lib/*.jar
+# Máy cục bộ (đường dẫn Android SDK)
+local.properties
 
 # Database & local configurations with secrets
-config/db.properties
-!config/db.properties.example
-
-# Build scripts temp files
-sources.txt
+server/config/db.properties
+!server/config/db.properties.example
 
 # IDE / Editor files
 .idea/

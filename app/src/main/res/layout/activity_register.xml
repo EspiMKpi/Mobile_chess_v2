@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chủ: N04. Hình 2.2 RegisterActivity. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/label_username" />
+        <EditText android:id="@+id/txtUsername" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:autofillHints="username" android:inputType="text" />
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/label_password" />
+        <EditText android:id="@+id/txtPassword" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:autofillHints="password" android:inputType="textPassword" />
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/label_confirm_password" />
+        <EditText android:id="@+id/txtConfirmPass" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:autofillHints="password" android:inputType="textPassword" />
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/label_name" />
+        <EditText android:id="@+id/txtName" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:autofillHints="name" android:inputType="textPersonName" />
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/label_email" />
+        <EditText android:id="@+id/txtEmail" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:autofillHints="emailAddress" android:inputType="textEmailAddress" />
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/label_tel" />
+        <EditText android:id="@+id/txtTel" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:autofillHints="phone" android:inputType="phone" />
+
+        <Button android:id="@+id/btnSubmit" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="24dp"
+            android:text="@string/btn_register" />
+        <Button android:id="@+id/btnCancel" style="?attr/borderlessButtonStyle"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/btn_cancel" />
+    </LinearLayout>
+</ScrollView>

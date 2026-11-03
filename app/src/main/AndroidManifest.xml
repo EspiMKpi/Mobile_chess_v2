@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chủ: N04. Khai báo SẴN toàn bộ Activity của cả 2 người (kể cả AIMatchActivity của N11)
+     để N11 không phải sửa file này. Mọi màn hình khóa dọc. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MobileChess">
+
+        <activity
+            android:name="client.view.ClientMainActivity"
+            android:exported="true"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name="client.view.LoginActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.RegisterActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.OnlineListActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.EditPlayerActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.ChangePasswordActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.PlayerHistoryActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.RankingActivity" android:screenOrientation="portrait" />
+        <activity android:name="client.view.MatchPlayActivity" android:screenOrientation="portrait" />
+
+        <!-- N11 -->
+        <activity android:name="client.view.ai.AIMatchActivity" android:screenOrientation="portrait" />
+    </application>
+</manifest>
