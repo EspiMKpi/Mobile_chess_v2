@@ -24,7 +24,7 @@ public class DAO {
 
     public static synchronized Connection getConnection() {
         try {
-            if (con == null || con.isClosed()) {
+            if (con == null || con.isClosed() || !con.isValid(2)) {
                 connect();
             }
         } catch (SQLException e) {
@@ -37,37 +37,48 @@ public class DAO {
         con = connection;
     }
 
-    private static void connect() {
-        try {
-            Properties props = new Properties();
-            String[] possiblePaths = {
-                    "config/db.properties",
-                    "server/config/db.properties",
-                    "config/db.properties.example",
-                    "server/config/db.properties.example"
-            };
+    /** Tách đọc cấu hình db.properties. */
+    protected static Properties loadDbProperties() {
+        Properties props = new Properties();
+        String[] possiblePaths = {
+                "config/db.properties",
+                "server/config/db.properties",
+                "config/db.properties.example",
+                "server/config/db.properties.example"
+        };
 
-            for (String path : possiblePaths) {
-                File f = new File(path);
-                if (f.exists()) {
-                    try (InputStream in = new FileInputStream(f)) {
-                        props.load(in);
-                        break;
-                    } catch (Exception ignored) {
-                    }
+        for (String path : possiblePaths) {
+            File f = new File(path);
+            if (f.exists()) {
+                try (InputStream in = new FileInputStream(f)) {
+                    props.load(in);
+                    break;
+                } catch (Exception ignored) {
                 }
             }
+        }
+        return props;
+    }
 
+    /** Mở MỘT kết nối mới, không dùng chung. Người gọi phải tự đóng. Trả null nếu lỗi. */
+    public static Connection openNewConnection() {
+        try {
+            Properties props = loadDbProperties();
             String url = props.getProperty("url",
                     "jdbc:mysql://localhost:3306/chess?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Ho_Chi_Minh");
             String user = props.getProperty("user", "root");
             String pass = props.getProperty("password", "");
 
             Class.forName("com.mysql.cj.jdbc.Driver");
-            con = DriverManager.getConnection(url, user, pass);
+            return DriverManager.getConnection(url, user, pass);
         } catch (Exception e) {
             System.err.println("DAO Database connection note: " + e.getMessage());
+            return null;
         }
+    }
+
+    private static void connect() {
+        con = openNewConnection();
     }
 
     /** SHA-256, trả về 64 ký tự hexa (khớp cột tblPlayer.password VARCHAR(64)). */

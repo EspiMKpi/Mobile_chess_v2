@@ -18,85 +18,82 @@ import model.Player;
 public class MatchDAO extends DAO {
 
     /**
-     * Lưu 1 ván trong MỘT transaction: tblMatch -> 2 tblMatchResult ->
-     * new MatchMoveDAO().insertMoves(con, matchId, match.getMoves()) (phần của N11) -> commit.
+     * Lưu 1 ván trong MỘT transaction với Connection riêng: tblMatch -> 2 tblMatchResult ->
+     * new MatchMoveDAO().insertMoves(connection, matchId, match.getMoves()) (phần của N11) -> commit.
      */
-    public synchronized boolean saveMatch(Match match) {
+    public boolean saveMatch(Match match) {
         if (match == null || match.getResults() == null || match.getResults().isEmpty()) {
             return false;
         }
-        Connection connection = getConnection();
-        if (connection == null) {
-            return false;
-        }
 
-        boolean oldAutoCommit = true;
-        try {
-            oldAutoCommit = connection.getAutoCommit();
-            connection.setAutoCommit(false);
-
-            // 1. Lưu tblMatch
-            String matchSql = "INSERT INTO tblMatch(startTime, endTime) VALUES (?, ?)";
-            int matchId = 0;
-            try (PreparedStatement psMatch = connection.prepareStatement(matchSql, Statement.RETURN_GENERATED_KEYS)) {
-                long startMs = (match.getStartTime() != null) ? match.getStartTime().getTime() : System.currentTimeMillis();
-                long endMs = (match.getEndTime() != null) ? match.getEndTime().getTime() : startMs;
-
-                psMatch.setTimestamp(1, new Timestamp(startMs));
-                psMatch.setTimestamp(2, new Timestamp(endMs));
-                psMatch.executeUpdate();
-
-                try (ResultSet rs = psMatch.getGeneratedKeys()) {
-                    if (rs.next()) {
-                        matchId = rs.getInt(1);
-                        match.setId(matchId);
-                    }
-                }
-            }
-
-            if (matchId == 0) {
-                connection.rollback();
+        try (Connection connection = openNewConnection()) {
+            if (connection == null) {
                 return false;
             }
 
-            // 2. Lưu tblMatchResult (thường 2 dòng)
-            String resultSql = "INSERT INTO tblMatchResult(matchId, playerId, result, color) VALUES (?, ?, ?, ?)";
-            try (PreparedStatement psRes = connection.prepareStatement(resultSql)) {
-                for (MatchResult mr : match.getResults()) {
-                    if (mr != null && mr.getPlayer() != null) {
-                        psRes.setInt(1, matchId);
-                        psRes.setInt(2, mr.getPlayer().getId());
-                        psRes.setString(3, mr.getResult() != null ? mr.getResult() : "DRAW");
-                        psRes.setString(4, mr.getColor() != null ? mr.getColor() : "WHITE");
-                        psRes.addBatch();
+            connection.setAutoCommit(false);
+            try {
+                // 1. Lưu tblMatch
+                String matchSql = "INSERT INTO tblMatch(startTime, endTime) VALUES (?, ?)";
+                int matchId = 0;
+                try (PreparedStatement psMatch = connection.prepareStatement(matchSql, Statement.RETURN_GENERATED_KEYS)) {
+                    long startMs = (match.getStartTime() != null) ? match.getStartTime().getTime() : System.currentTimeMillis();
+                    long endMs = (match.getEndTime() != null) ? match.getEndTime().getTime() : startMs;
+
+                    psMatch.setTimestamp(1, new Timestamp(startMs));
+                    psMatch.setTimestamp(2, new Timestamp(endMs));
+                    psMatch.executeUpdate();
+
+                    try (ResultSet rs = psMatch.getGeneratedKeys()) {
+                        if (rs.next()) {
+                            matchId = rs.getInt(1);
+                            match.setId(matchId);
+                        }
                     }
                 }
-                psRes.executeBatch();
-            }
 
-            // 3. Lưu tblMatchMove qua MatchMoveDAO của N11
-            if (match.getMoves() != null && !match.getMoves().isEmpty()) {
-                try {
-                    new MatchMoveDAO().insertMoves(connection, matchId, match.getMoves());
-                } catch (Exception e) {
-                    System.err.println("MatchDAO.saveMatch insertMoves note: " + e.getMessage());
+                if (matchId == 0) {
+                    connection.rollback();
+                    return false;
                 }
-            }
 
-            connection.commit();
-            return true;
+                // 2. Lưu tblMatchResult (thường 2 dòng)
+                String resultSql = "INSERT INTO tblMatchResult(matchId, playerId, result, color) VALUES (?, ?, ?, ?)";
+                try (PreparedStatement psRes = connection.prepareStatement(resultSql)) {
+                    for (MatchResult mr : match.getResults()) {
+                        if (mr != null && mr.getPlayer() != null) {
+                            psRes.setInt(1, matchId);
+                            psRes.setInt(2, mr.getPlayer().getId());
+                            psRes.setString(3, mr.getResult() != null ? mr.getResult() : "DRAW");
+                            psRes.setString(4, mr.getColor() != null ? mr.getColor() : "WHITE");
+                            psRes.addBatch();
+                        }
+                    }
+                    psRes.executeBatch();
+                }
+
+                // 3. Lưu tblMatchMove qua MatchMoveDAO của N11
+                if (match.getMoves() != null && !match.getMoves().isEmpty()) {
+                    try {
+                        new MatchMoveDAO().insertMoves(connection, matchId, match.getMoves());
+                    } catch (Exception e) {
+                        System.err.println("MatchDAO.saveMatch insertMoves note: " + e.getMessage());
+                    }
+                }
+
+                connection.commit();
+                return true;
+            } catch (SQLException e) {
+                System.err.println("MatchDAO.saveMatch error: " + e.getMessage());
+                try {
+                    connection.rollback();
+                } catch (SQLException ignored) {
+                }
+                return false;
+            }
         } catch (SQLException e) {
-            System.err.println("MatchDAO.saveMatch error: " + e.getMessage());
-            try {
-                connection.rollback();
-            } catch (SQLException ignored) {
-            }
+            System.err.println("MatchDAO.saveMatch close error: " + e.getMessage());
             return false;
-        } finally {
-            try {
-                connection.setAutoCommit(oldAutoCommit);
-            } catch (SQLException ignored) {
-            }
         }
     }
 
