@@ -131,11 +131,11 @@ public class OnlineListActivity extends BaseActivity {
                 if (data.getData() instanceof PlayerStat) {
                     PlayerStat inviter = (PlayerStat) data.getData();
                     Activity cur = myControl.getCurrentActivity();
-                    if (cur instanceof AppCompatActivity) {
+                    if (cur instanceof AppCompatActivity && !((AppCompatActivity) cur).getSupportFragmentManager().isStateSaved()) {
                         InviteDialog.newInstance(inviter)
                                 .show(((AppCompatActivity) cur).getSupportFragmentManager(), InviteDialog.TAG);
                     } else {
-                        // Không có activity nào đang hiển thị -> từ chối ngay
+                        // Không có activity nào đang hiển thị hoặc app đang ở nền -> từ chối ngay
                         myControl.sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_DECISION, false));
                     }
                 }

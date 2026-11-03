@@ -95,6 +95,8 @@ public class InviteDialog extends DialogFragment implements DataReceiver {
 
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
+        if (!isAdded()) return;
+
         switch (data.getPerformative()) {
             case ObjectWrapper.SERVER_START_MATCH:
                 if (data.getData() instanceof MatchStartInfo) {

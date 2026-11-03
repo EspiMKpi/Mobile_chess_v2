@@ -35,6 +35,7 @@ public class MatchPlayActivity extends BaseActivity {
     private String myColor;
     private PlayerStat opponent;
     private boolean inGame = true;
+    private GameResult pendingResult;   // kết quả nhận được lúc Activity đang ở nền
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,9 +98,31 @@ public class MatchPlayActivity extends BaseActivity {
     public void swapColor(String newColor) {
         this.myColor = newColor;
         this.inGame = true;
+        this.pendingResult = null;
         dismissContinueDialog();
         updateLabels();
         boardView.reset(myColor);
+    }
+
+    private void showContinueDialog(GameResult r) {
+        androidx.fragment.app.FragmentManager fm = getSupportFragmentManager();
+        if (fm.isStateSaved()) {        // đang ở nền -> để dành, hiện khi quay lại
+            pendingResult = r;
+            return;
+        }
+        if (fm.findFragmentByTag(ContinueDialog.TAG) == null) {
+            ContinueDialog.newInstance(r).show(fm, ContinueDialog.TAG);
+        }
+    }
+
+    @Override
+    protected void onPostResume() {     // FragmentManager đã sẵn sàng nhận transaction ở đây
+        super.onPostResume();
+        if (pendingResult != null && !isFinishing()) {
+            GameResult r = pendingResult;
+            pendingResult = null;
+            showContinueDialog(r);
+        }
     }
 
     private void dismissContinueDialog() {
@@ -121,8 +144,7 @@ public class MatchPlayActivity extends BaseActivity {
                 inGame = false;
                 boardView.setLocked(true);
                 if (data.getData() instanceof GameResult) {
-                    ContinueDialog.newInstance((GameResult) data.getData())
-                            .show(getSupportFragmentManager(), ContinueDialog.TAG);
+                    showContinueDialog((GameResult) data.getData());
                 }
                 break;
 
@@ -133,6 +155,7 @@ public class MatchPlayActivity extends BaseActivity {
                 break;
 
             case ObjectWrapper.SERVER_END_SESSION_MATCH:
+                pendingResult = null;
                 dismissContinueDialog();
                 if ("OPPONENT_STOP".equals(data.getData())) {
                     toast("Đối thủ đã dừng chơi");
