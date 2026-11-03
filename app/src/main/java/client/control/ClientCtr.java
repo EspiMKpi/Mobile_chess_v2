@@ -42,9 +42,9 @@ public class ClientCtr {
 
     private Context appContext;
     private IPAddress serverAddress;
-    private Socket mySocket;
-    private ObjectOutputStream oos;
-    private ObjectInputStream ois;
+    private volatile Socket mySocket;
+    private volatile ObjectOutputStream oos;
+    private volatile ObjectInputStream ois;
     private ClientListening myListening;
     private volatile boolean closing;
 
@@ -102,7 +102,7 @@ public class ClientCtr {
             oos.flush();
             ois = new ObjectInputStream(mySocket.getInputStream());
 
-            myListening = new ClientListening();
+            myListening = new ClientListening(mySocket, ois);
             myListening.start();
             return true;
         } catch (Exception e) {
@@ -197,12 +197,21 @@ public class ClientCtr {
 
     /** Luồng nền đọc gói tin từ Server. */
     private class ClientListening extends Thread {
+        private final Socket socket;
+        private final ObjectInputStream in;
+
+        ClientListening(Socket socket, ObjectInputStream in) {
+            this.socket = socket;
+            this.in = in;
+        }
+
         @Override
         public void run() {
             try {
-                while (!closing && ois != null) {
-                    ObjectWrapper d = (ObjectWrapper) ois.readObject();
-                    if (d == null) continue;
+                while (!closing) {
+                    Object o = in.readObject();
+                    if (!(o instanceof ObjectWrapper)) continue;
+                    ObjectWrapper d = (ObjectWrapper) o;
 
                     for (ObjectWrapper fto : myFunction) {
                         if (fto.getPerformative() == d.getPerformative()) {
@@ -213,17 +222,22 @@ public class ClientCtr {
                         }
                     }
                 }
-            } catch (IOException | ClassNotFoundException e) {
-                if (!closing) {
-                    mainHandler.post(() -> {
-                        if (appContext != null) {
-                            Toast.makeText(appContext, "Mất kết nối server", Toast.LENGTH_SHORT).show();
-                            Intent intent = new Intent(appContext, ClientMainActivity.class);
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                            appContext.startActivity(intent);
-                        }
-                    });
+            } catch (Exception e) {
+                if (closing || socket != mySocket) {
+                    return; // Đăng xuất, hoặc socket cũ đã được thay -> im lặng
                 }
+                try {
+                    socket.close();
+                } catch (IOException ignored) {
+                }
+                mainHandler.post(() -> {
+                    if (appContext != null) {
+                        Toast.makeText(appContext, "Mất kết nối server", Toast.LENGTH_SHORT).show();
+                        Intent intent = new Intent(appContext, ClientMainActivity.class);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        appContext.startActivity(intent);
+                    }
+                });
             }
         }
     }
