@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
 
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import model.IPAddress;
@@ -20,6 +21,7 @@ public class ClientMainActivity extends BaseActivity {
     private EditText txtServerHost;
     private EditText txtServerPort;
     private Button btnConnect;
+    private final ExecutorService connectExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,9 +65,10 @@ public class ClientMainActivity extends BaseActivity {
         btnConnect.setEnabled(false);
         myControl.setServerAddress(new IPAddress(host, port));
 
-        Executors.newSingleThreadExecutor().execute(() -> {
+        connectExecutor.execute(() -> {
             boolean ok = myControl.openConnection();
             runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
                 btnConnect.setEnabled(true);
                 if (ok) {
                     startActivity(new Intent(this, LoginActivity.class));
@@ -74,6 +77,12 @@ public class ClientMainActivity extends BaseActivity {
                 }
             });
         });
+    }
+
+    @Override
+    protected void onDestroy() {
+        connectExecutor.shutdownNow();
+        super.onDestroy();
     }
 
     /** Đưa về trạng thái chưa kết nối (sau đăng xuất / mất kết nối). */
