@@ -12,6 +12,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -37,6 +38,7 @@ public class ClientCtr {
     private static ClientCtr instance;
 
     private final CopyOnWriteArrayList<ObjectWrapper> myFunction = new CopyOnWriteArrayList<>();
+    private final List<ObjectWrapper> pendingBoardMessages = new ArrayList<>();
     private final ExecutorService sendExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -141,6 +143,9 @@ public class ClientCtr {
         }
         myListening = null;
         myFunction.clear();
+        synchronized (pendingBoardMessages) {
+            pendingBoardMessages.clear();
+        }
         return true;
     }
 
@@ -188,6 +193,19 @@ public class ClientCtr {
         myFunction.removeIf(f -> f.getData() == r);
     }
 
+    /** MatchPlayActivity gọi cuối onCreate (main thread) để nhận các gói nước đi đến sớm. */
+    public void flushPendingBoardMessages(DataReceiver r) {
+        if (r == null) return;
+        List<ObjectWrapper> copy;
+        synchronized (pendingBoardMessages) {
+            copy = new ArrayList<>(pendingBoardMessages);
+            pendingBoardMessages.clear();
+        }
+        for (ObjectWrapper d : copy) {
+            r.receivedDataProcessing(d);
+        }
+    }
+
     public Player getMyPlayer() { return myPlayer; }
     public void setMyPlayer(Player myPlayer) { this.myPlayer = myPlayer; }
 
@@ -213,12 +231,27 @@ public class ClientCtr {
                     if (!(o instanceof ObjectWrapper)) continue;
                     ObjectWrapper d = (ObjectWrapper) o;
 
+                    if (d.getPerformative() == ObjectWrapper.SERVER_START_MATCH) {
+                        synchronized (pendingBoardMessages) {
+                            pendingBoardMessages.clear();
+                        }
+                    }
+
+                    boolean matched = false;
                     for (ObjectWrapper fto : myFunction) {
                         if (fto.getPerformative() == d.getPerformative()) {
                             Object receiver = fto.getData();
                             if (receiver instanceof DataReceiver) {
+                                matched = true;
                                 mainHandler.post(() -> ((DataReceiver) receiver).receivedDataProcessing(d));
                             }
+                        }
+                    }
+
+                    if (!matched && (d.getPerformative() == ObjectWrapper.SERVER_INFORM_MOVE
+                            || d.getPerformative() == ObjectWrapper.REPLY_MOVE_ILLEGAL)) {
+                        synchronized (pendingBoardMessages) {
+                            pendingBoardMessages.add(d);
                         }
                     }
                 }

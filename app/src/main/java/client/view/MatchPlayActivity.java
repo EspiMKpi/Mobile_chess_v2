@@ -69,6 +69,7 @@ public class MatchPlayActivity extends BaseActivity {
 
         updateLabels();
         boardView.reset(myColor);
+        myControl.flushPendingBoardMessages(this);
     }
 
     private void updateLabels() {
@@ -102,6 +103,7 @@ public class MatchPlayActivity extends BaseActivity {
         dismissContinueDialog();
         updateLabels();
         boardView.reset(myColor);
+        myControl.flushPendingBoardMessages(this);
     }
 
     private void showContinueDialog(GameResult r) {
