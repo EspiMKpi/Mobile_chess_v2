@@ -42,6 +42,8 @@ public class ObjectWrapper implements Serializable {
     // ===== N04 - Bảng xếp hạng (bổ sung) =====
     public static final int GET_RANKING = 25;
     public static final int REPLY_RANKING = 26;                   // data: ArrayList<PlayerRanking>
+    // ===== N04 - Hủy lời mời (báo cáo hình 4.11, bước 26) =====
+    public static final int SERVER_CANCEL_CHALLENGE = 27;         // data: String lý do ("CANCEL" | "TIMEOUT" | "DISCONNECT")
 
     // ===== N11 - Nước đi & đồng bộ bàn cờ =====
     public static final int SEND_MOVE = 30;                       // data: MoveRequest

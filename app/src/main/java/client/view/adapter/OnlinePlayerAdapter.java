@@ -1,7 +1,5 @@
 package client.view.adapter;
 
-import android.graphics.Color;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -11,14 +9,12 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import model.PlayerStat;
-import vn.edu.ptit.mobilechess.R;
 
 /**
- * Chủ: N04. Adapter hiển thị danh sách người chơi trực tuyến (hình 3.1).
- * Hỗ trợ chọn 1 dòng bằng cách chạm (tô nền) và giữ lựa chọn theo id khi danh sách cập nhật.
+ * Chủ: N04. Adapter danh sách người chơi online (layout item_online_player): STT, tên, @username, tổng điểm,
+ * trạng thái RẢNH / ĐANG BẬN. Chạm để chọn 1 dòng (tô nền), giữ lựa chọn theo id khi danh sách cập nhật.
  */
 public class OnlinePlayerAdapter extends RecyclerView.Adapter<OnlinePlayerAdapter.ViewHolder> {
 
@@ -34,73 +30,39 @@ public class OnlinePlayerAdapter extends RecyclerView.Adapter<OnlinePlayerAdapte
         this.listener = listener;
     }
 
+    /** Thay toàn bộ danh sách rồi notifyDataSetChanged(). */
     public void setPlayers(List<PlayerStat> newPlayers) {
-        this.players.clear();
-        if (newPlayers != null) {
-            this.players.addAll(newPlayers);
-        }
-        notifyDataSetChanged();
+        // TODO
     }
 
+    /** Người chơi đang được chọn (theo selectedId), null nếu chưa chọn / đã rời đi. */
     public PlayerStat getSelected() {
-        if (selectedId == -1) return null;
-        for (PlayerStat p : players) {
-            if (p.getId() == selectedId) {
-                return p;
-            }
-        }
+        // TODO
         return null;
     }
 
     public void setSelectedId(int id) {
-        this.selectedId = id;
-        notifyDataSetChanged();
+        // TODO
     }
 
+    /** Inflate R.layout.item_online_player. */
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_online_player, parent, false);
-        return new ViewHolder(view);
+        // TODO
+        return null;
     }
 
+    /** Đổ dữ liệu 1 dòng, tô nền dòng được chọn, gắn click -> chọn + listener.onPlayerSelected(p). */
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        PlayerStat p = players.get(position);
-        holder.txtIndex.setText(String.valueOf(position + 1));
-        holder.txtName.setText(p.getName() != null ? p.getName() : p.getUsername());
-        holder.txtUsername.setText("@" + p.getUsername());
-        holder.txtPoints.setText(String.format(Locale.getDefault(), "%.1f đ", p.getTotalPoint()));
-
-        boolean isIdle = PlayerStat.IDLE.equalsIgnoreCase(p.getStatus());
-        if (isIdle) {
-            holder.txtStatus.setText("RẢNH");
-            holder.txtStatus.setTextColor(Color.parseColor("#2E7D32")); // Green
-        } else {
-            holder.txtStatus.setText("ĐANG BẬN");
-            holder.txtStatus.setTextColor(Color.parseColor("#E65100")); // Orange
-        }
-
-        // Tô nền dòng được chọn
-        if (p.getId() == selectedId) {
-            holder.itemView.setBackgroundColor(Color.parseColor("#BBDEFB")); // Light blue highlight
-        } else {
-            holder.itemView.setBackgroundColor(Color.TRANSPARENT);
-        }
-
-        holder.itemView.setOnClickListener(v -> {
-            selectedId = p.getId();
-            notifyDataSetChanged();
-            if (listener != null) {
-                listener.onPlayerSelected(p);
-            }
-        });
+        // TODO
     }
 
     @Override
     public int getItemCount() {
-        return players.size();
+        // TODO
+        return 0;
     }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
@@ -112,11 +74,7 @@ public class OnlinePlayerAdapter extends RecyclerView.Adapter<OnlinePlayerAdapte
 
         ViewHolder(View itemView) {
             super(itemView);
-            txtIndex = itemView.findViewById(R.id.txtIndex);
-            txtName = itemView.findViewById(R.id.txtName);
-            txtUsername = itemView.findViewById(R.id.txtUsername);
-            txtPoints = itemView.findViewById(R.id.txtPoints);
-            txtStatus = itemView.findViewById(R.id.txtStatus);
+            // TODO: findViewById các TextView
         }
     }
 }

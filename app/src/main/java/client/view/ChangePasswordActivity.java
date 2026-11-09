@@ -6,7 +6,7 @@ import android.widget.EditText;
 import model.ObjectWrapper;
 import vn.edu.ptit.mobilechess.R;
 
-/** Chủ: N04. Hình 2.4. Nhận REPLY_CHANGE_PASSWORD. data gửi lên: String[]{oldPass, newPass}. */
+/** Chủ: N04. Đổi mật khẩu (hình 4.6). Nhận REPLY_CHANGE_PASSWORD. Dữ liệu gửi lên: String[]{oldPass, newPass}. */
 public class ChangePasswordActivity extends BaseActivity {
 
     private EditText txtOldPassword, txtNewPassword, txtConfirmPassword;
@@ -16,54 +16,24 @@ public class ChangePasswordActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_change_password);
         setTitle(R.string.title_change_password);
-        listen(ObjectWrapper.REPLY_CHANGE_PASSWORD);
-
-        txtOldPassword = findViewById(R.id.txtOldPassword);
-        txtNewPassword = findViewById(R.id.txtNewPassword);
-        txtConfirmPassword = findViewById(R.id.txtConfirmPassword);
-        findViewById(R.id.btnSave).setOnClickListener(v -> save());
-        findViewById(R.id.btnCancel).setOnClickListener(v -> finish());
+        // TODO: bước 3 - listen(REPLY_CHANGE_PASSWORD)
+        // TODO: findViewById; btnSave -> save(); btnCancel -> finish()
     }
 
+    /** Bước 5: không trống, mật khẩu mới khớp xác nhận. */
+    private boolean validateInput() {
+        // TODO
+        return false;
+    }
+
+    /** Bước 4-6: validateInput(), sendData(CHANGE_PASSWORD, new String[]{oldPass, newPass}). */
     private void save() {
-        String oldPass = txtOldPassword.getText().toString();
-        String newPass = txtNewPassword.getText().toString();
-        String confirmPass = txtConfirmPassword.getText().toString();
-
-        if (oldPass.isEmpty()) {
-            txtOldPassword.setError("Vui lòng nhập mật khẩu hiện tại");
-            return;
-        }
-        if (newPass.isEmpty()) {
-            txtNewPassword.setError("Vui lòng nhập mật khẩu mới");
-            return;
-        }
-        if (newPass.length() < 6) {
-            txtNewPassword.setError("Mật khẩu mới tối thiểu 6 ký tự");
-            return;
-        }
-        if (!newPass.equals(confirmPass)) {
-            txtConfirmPassword.setError("Mật khẩu xác nhận không khớp");
-            return;
-        }
-        if (newPass.equals(oldPass)) {
-            txtNewPassword.setError("Mật khẩu mới không được trùng mật khẩu cũ");
-            return;
-        }
-
-        myControl.sendData(new ObjectWrapper(ObjectWrapper.CHANGE_PASSWORD, new String[]{oldPass, newPass}));
+        // TODO
     }
 
+    /** Bước 13-14: "ok" -> báo thành công, finish(); "false" -> "Mật khẩu hiện tại không đúng". */
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
-        if (data.getPerformative() == ObjectWrapper.REPLY_CHANGE_PASSWORD) {
-            if ("ok".equals(data.getData())) {
-                toast("Đổi mật khẩu thành công!");
-                finish();
-            } else {
-                txtOldPassword.setError("Mật khẩu hiện tại không đúng");
-                toast("Mật khẩu hiện tại không đúng");
-            }
-        }
+        // TODO
     }
 }

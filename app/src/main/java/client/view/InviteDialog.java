@@ -1,121 +1,80 @@
 package client.view;
 
 import android.app.Dialog;
-import android.content.Intent;
 import android.os.Bundle;
-import android.widget.Button;
-import android.widget.Toast;
+import android.os.CountDownTimer;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
 import client.control.ClientCtr;
-import model.MatchStartInfo;
 import model.ObjectWrapper;
 import model.PlayerStat;
-import vn.edu.ptit.mobilechess.R;
 
 /**
- * Chủ: N04. Hình 4.2 - lời mời từ người khác. [Đồng ý] / [Từ chối] gửi REPLY_CHALLENGE_DECISION (Boolean).
- * Nhận SERVER_START_MATCH (vào ván) và REPLY_CHALLENGE_REJECT (người mời đã rời đi).
+ * Chủ: N04. Hộp thoại lời mời phía B (hiện ở bất kỳ màn hình nào): tên + điểm người mời,
+ * đếm ngược 30 giây, [Đồng ý] / [Từ chối] gửi REPLY_CHALLENGE_DECISION (Boolean).
+ * Nhận SERVER_START_MATCH (vào ván) và SERVER_CANCEL_CHALLENGE (A hủy / hết giờ / A mất kết nối).
  */
 public class InviteDialog extends DialogFragment implements DataReceiver {
 
     public static final String TAG = "InviteDialog";
     private static final String ARG_INVITER = "inviter";
+    private static final long TIMEOUT_MS = 30_000;
 
     private final ClientCtr myControl = ClientCtr.getInstance();
     private PlayerStat inviter;
+    private CountDownTimer countdown;
 
+    /** Hình 4.11 bước 25: đóng gói inviter vào Bundle (ARG_INVITER). */
     public static InviteDialog newInstance(PlayerStat inviter) {
-        Bundle args = new Bundle();
-        args.putSerializable(ARG_INVITER, inviter);
-        InviteDialog d = new InviteDialog();
-        d.setArguments(args);
-        return d;
+        // TODO
+        return new InviteDialog();
     }
 
+    /** setCancelable(false), đọc inviter. Bước 26: register(SERVER_START_MATCH, SERVER_CANCEL_CHALLENGE). */
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setCancelable(false);
-        inviter = (PlayerStat) requireArguments().getSerializable(ARG_INVITER);
-        myControl.register(ObjectWrapper.SERVER_START_MATCH, this);
-        myControl.register(ObjectWrapper.REPLY_CHALLENGE_REJECT, this);
+        // TODO
     }
 
+    /** Bước 27: AlertDialog lời mời + [Đồng ý] -> accept(), [Từ chối] -> reject(); startCountdown(). */
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        String name = (inviter != null)
-                ? (inviter.getName() != null && !inviter.getName().isEmpty() ? inviter.getName() : inviter.getUsername())
-                : "";
-        float pt = (inviter != null) ? inviter.getTotalPoint() : 0f;
+        // TODO
+        return super.onCreateDialog(savedInstanceState);
+    }
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.title_invite)
-                .setMessage(getString(R.string.msg_invite, name, pt))
-                .setPositiveButton(R.string.btn_accept, null)
-                .setNegativeButton(R.string.btn_reject, null)
-                .create();
+    /** Đếm ngược 30 giây, cập nhật số giây còn lại lên hộp thoại. */
+    private void startCountdown() {
+        // TODO
+    }
 
-        dialog.setOnShowListener(d -> {
-            Button btnAccept = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            Button btnReject = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+    /** Hình 4.12 bước 1-2: khóa 2 nút, "Đang vào phòng thi đấu...", sendData(REPLY_CHALLENGE_DECISION, true). */
+    private void accept() {
+        // TODO
+    }
 
-            btnAccept.setOnClickListener(v -> {
-                btnAccept.setEnabled(false);
-                btnReject.setEnabled(false);
-                dialog.setMessage("Đang vào phòng thi đấu...");
-                myControl.sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_DECISION, true));
-            });
-
-            btnReject.setOnClickListener(v -> {
-                myControl.sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_DECISION, false));
-                dismissAllowingStateLoss();
-            });
-        });
-
-        return dialog;
+    /** sendData(REPLY_CHALLENGE_DECISION, false), đóng hộp thoại. */
+    private void reject() {
+        // TODO
     }
 
     @Override
     public void onDestroy() {
-        myControl.unregister(this);
+        // TODO: hủy countdown, myControl.unregister(this)
         super.onDestroy();
     }
 
-    private void toast(String msg) {
-        if (getContext() != null) {
-            Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
-        }
-    }
-
+    /**
+     * - SERVER_START_MATCH (hình 4.12 bước 19-20) -> mở MatchPlayActivity với màu quân + đối thủ, đóng.
+     * - SERVER_CANCEL_CHALLENGE -> báo lý do (người mời đã hủy / hết giờ), đóng.
+     */
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
-        if (!isAdded()) return;
-
-        switch (data.getPerformative()) {
-            case ObjectWrapper.SERVER_START_MATCH:
-                if (data.getData() instanceof MatchStartInfo) {
-                    MatchStartInfo info = (MatchStartInfo) data.getData();
-                    Intent intent = new Intent(requireContext(), MatchPlayActivity.class);
-                    intent.putExtra(MatchPlayActivity.EXTRA_MY_COLOR, info.getMyColor());
-                    intent.putExtra(MatchPlayActivity.EXTRA_OPPONENT, info.getOpponent());
-                    startActivity(intent);
-                }
-                dismissAllowingStateLoss();
-                break;
-
-            case ObjectWrapper.REPLY_CHALLENGE_REJECT:
-                toast("Người mời đã rời đi");
-                dismissAllowingStateLoss();
-                break;
-
-            default:
-                break;
-        }
+        // TODO
     }
 }

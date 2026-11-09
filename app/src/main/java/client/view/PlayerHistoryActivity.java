@@ -1,10 +1,8 @@
 package client.view;
 
 import android.os.Bundle;
-import android.view.View;
 import android.widget.TextView;
 
-import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -12,10 +10,9 @@ import java.util.ArrayList;
 import client.view.adapter.MatchHistoryAdapter;
 import model.Match;
 import model.ObjectWrapper;
-import model.Player;
 import vn.edu.ptit.mobilechess.R;
 
-/** Chủ: N04. Hình 2.5. Nhận REPLY_PLAYER_HISTORY (ArrayList<Match>). */
+/** Chủ: N04. Xem lịch sử đấu (hình 4.7). Nhận REPLY_PLAYER_HISTORY (ArrayList<Match>). */
 public class PlayerHistoryActivity extends BaseActivity {
 
     private RecyclerView tblHistory;
@@ -27,39 +24,19 @@ public class PlayerHistoryActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_list_screen);
         setTitle(R.string.title_history);
-        listen(ObjectWrapper.REPLY_PLAYER_HISTORY);
-
-        tblHistory = findViewById(R.id.recyclerList);
-        tblHistory.setLayoutManager(new LinearLayoutManager(this));
-        txtEmpty = findViewById(R.id.txtEmpty);
-        findViewById(R.id.btnClose).setOnClickListener(v -> finish());
-
-        Player me = myControl.getMyPlayer();
-        int myId = (me != null) ? me.getId() : -1;
-        adapter = new MatchHistoryAdapter(myId);
-        tblHistory.setAdapter(adapter);
-
-        myControl.sendData(new ObjectWrapper(ObjectWrapper.GET_PLAYER_HISTORY, null));
+        // TODO: bước 3 - listen(REPLY_PLAYER_HISTORY)
+        // TODO: findViewById (recyclerList, txtEmpty, btnClose), adapter = new MatchHistoryAdapter(myId)
+        // TODO: bước 4 - sendData(GET_PLAYER_HISTORY, null)
     }
 
+    /** Bước 15: danh sách rỗng -> hiện txtEmpty; ngược lại adapter.setMatches(list). */
+    private void showHistory(ArrayList<Match> list) {
+        // TODO
+    }
+
+    /** Bước 14: nhận REPLY_PLAYER_HISTORY -> showHistory(list). */
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
-        if (data.getPerformative() == ObjectWrapper.REPLY_PLAYER_HISTORY) {
-            if (data.getData() instanceof ArrayList) {
-                @SuppressWarnings("unchecked")
-                ArrayList<Match> list = (ArrayList<Match>) data.getData();
-                if (list == null || list.isEmpty()) {
-                    txtEmpty.setVisibility(View.VISIBLE);
-                    tblHistory.setVisibility(View.GONE);
-                } else {
-                    txtEmpty.setVisibility(View.GONE);
-                    tblHistory.setVisibility(View.VISIBLE);
-                    adapter.setMatches(list);
-                }
-            } else {
-                txtEmpty.setVisibility(View.VISIBLE);
-                tblHistory.setVisibility(View.GONE);
-            }
-        }
+        // TODO
     }
 }

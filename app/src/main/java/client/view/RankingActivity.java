@@ -1,10 +1,8 @@
 package client.view;
 
 import android.os.Bundle;
-import android.view.View;
 import android.widget.TextView;
 
-import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -15,8 +13,8 @@ import model.PlayerRanking;
 import vn.edu.ptit.mobilechess.R;
 
 /**
- * Chủ: N04. Bảng xếp hạng [LỆCH BC: bổ sung theo đề]. Nhận REPLY_RANKING (ArrayList<PlayerRanking>, đã sắp).
- * Cột: Hạng / Tên / Tổng điểm / TB điểm đối thủ / TB nước thắng / TB nước thua (giá trị -1 hiện "-").
+ * Chủ: N04. Xem bảng xếp hạng (hình 4.8). Nhận REPLY_RANKING (ArrayList<PlayerRanking>, server đã sắp).
+ * Cột: Hạng / Tên / Tổng điểm / TB điểm đối thủ / TB nước thắng / TB nước thua (-1 hiện "-").
  */
 public class RankingActivity extends BaseActivity {
 
@@ -29,39 +27,19 @@ public class RankingActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_list_screen);
         setTitle(R.string.title_ranking);
-        listen(ObjectWrapper.REPLY_RANKING);
-
-        tblRanking = findViewById(R.id.recyclerList);
-        tblRanking.setLayoutManager(new LinearLayoutManager(this));
-        txtEmpty = findViewById(R.id.txtEmpty);
-        findViewById(R.id.btnClose).setOnClickListener(v -> finish());
-
-        adapter = new RankingAdapter();
-        tblRanking.setAdapter(adapter);
-
-        myControl.sendData(new ObjectWrapper(ObjectWrapper.GET_RANKING, null));
+        // TODO: bước 3 - listen(REPLY_RANKING)
+        // TODO: findViewById (recyclerList, txtEmpty, btnClose), adapter = new RankingAdapter()
+        // TODO: bước 4 - sendData(GET_RANKING, null)
     }
 
+    /** Bước 14: danh sách rỗng -> hiện txtEmpty; ngược lại adapter.setRankings(list). */
+    private void showRanking(ArrayList<PlayerRanking> list) {
+        // TODO
+    }
+
+    /** Bước 13: nhận REPLY_RANKING -> showRanking(list). */
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
-        if (data.getPerformative() == ObjectWrapper.REPLY_RANKING) {
-            if (data.getData() instanceof ArrayList) {
-                @SuppressWarnings("unchecked")
-                ArrayList<PlayerRanking> list = (ArrayList<PlayerRanking>) data.getData();
-                if (list == null || list.isEmpty()) {
-                    txtEmpty.setText("Chưa có dữ liệu bảng xếp hạng");
-                    txtEmpty.setVisibility(View.VISIBLE);
-                    tblRanking.setVisibility(View.GONE);
-                } else {
-                    txtEmpty.setVisibility(View.GONE);
-                    tblRanking.setVisibility(View.VISIBLE);
-                    adapter.setRankings(list);
-                }
-            } else {
-                txtEmpty.setText("Chưa có dữ liệu bảng xếp hạng");
-                txtEmpty.setVisibility(View.VISIBLE);
-                tblRanking.setVisibility(View.GONE);
-            }
-        }
+        // TODO
     }
 }

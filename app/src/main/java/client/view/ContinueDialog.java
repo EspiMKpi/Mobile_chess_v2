@@ -2,108 +2,78 @@ package client.view;
 
 import android.app.Dialog;
 import android.os.Bundle;
-import android.widget.Button;
+import android.os.CountDownTimer;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
 import client.control.ClientCtr;
 import model.GameResult;
-import model.MatchResult;
-import model.ObjectWrapper;
-import vn.edu.ptit.mobilechess.R;
 
 /**
- * Chủ: N04. Hình 4.4 - hỏi chơi tiếp sau mỗi ván [LỆCH BC: tham số String -> GameResult].
- * [Tiếp tục] -> REQUEST_CONTINUE_MATCH(true), đổi nội dung thành "Đang chờ đối thủ..."
- * [Dừng chơi] -> REQUEST_CONTINUE_MATCH(false).
- * MatchPlayActivity đóng dialog khi nhận RESTART_MATCH_SWAP_COLOR / END_SESSION_MATCH.
+ * Chủ: N04. Hộp thoại sau mỗi ván (hình 4.13 bước 16-17): kết quả, điểm nhận được, "Tiếp tục ván tiếp theo?",
+ * [Tiếp tục] / [Dừng chơi], đếm ngược 30 giây (server quyết định khi hết giờ).
+ * MatchPlayActivity đóng dialog khi nhận SERVER_RESTART_MATCH_SWAP_COLOR / SERVER_END_SESSION_MATCH.
  */
 public class ContinueDialog extends DialogFragment {
 
     public static final String TAG = "ContinueDialog";
     private static final String ARG_RESULT = "result";
+    private static final long TIMEOUT_MS = 30_000;
 
     private final ClientCtr myControl = ClientCtr.getInstance();
     private GameResult result;
+    private CountDownTimer countdown;
 
+    /** Đóng gói result vào Bundle (ARG_RESULT). */
     public static ContinueDialog newInstance(GameResult result) {
-        Bundle args = new Bundle();
-        args.putSerializable(ARG_RESULT, result);
-        ContinueDialog d = new ContinueDialog();
-        d.setArguments(args);
-        return d;
+        // TODO
+        return new ContinueDialog();
     }
 
+    /** setCancelable(false), đọc result từ Bundle. */
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setCancelable(false);
-        result = (GameResult) requireArguments().getSerializable(ARG_RESULT);
+        // TODO
     }
 
-    /** CHECKMATE "Chiếu bí!" · STALEMATE "Hết nước đi – Hòa" · TIMEOUT "Hết giờ 30 giây" · RESIGN "Xin thua" · DISCONNECT "Đối thủ mất kết nối". */
+    /**
+     * Câu chữ lý do: CHECKMATE "Chiếu bí!", STALEMATE "Hết nước đi – Hòa", TIMEOUT "Hết giờ 30 giây",
+     * RESIGN "Xin thua", DISCONNECT "Đối thủ mất kết nối"; kèm kết quả + điểm (thắng 1, hòa 0.5, thua 0).
+     */
     private String describe(GameResult r) {
-        if (r == null) return "";
-
-        String reasonStr;
-        String reason = r.getReason();
-        if (GameResult.CHECKMATE.equalsIgnoreCase(reason)) {
-            reasonStr = "Chiếu bí!";
-        } else if (GameResult.STALEMATE.equalsIgnoreCase(reason)) {
-            reasonStr = "Hết nước đi – Hòa";
-        } else if (GameResult.TIMEOUT.equalsIgnoreCase(reason)) {
-            reasonStr = "Hết giờ 30 giây";
-        } else if (GameResult.RESIGN.equalsIgnoreCase(reason)) {
-            reasonStr = "Xin thua";
-        } else if (GameResult.DISCONNECT.equalsIgnoreCase(reason)) {
-            reasonStr = "Đối thủ mất kết nối";
-        } else {
-            reasonStr = (reason != null ? reason : "");
-        }
-
-        String outcomeStr;
-        String res = r.getResult();
-        if (MatchResult.WIN.equalsIgnoreCase(res)) {
-            outcomeStr = "BẠN THẮNG (+1.0 điểm)";
-        } else if (MatchResult.DRAW.equalsIgnoreCase(res)) {
-            outcomeStr = "HÒA (+0.5 điểm)";
-        } else {
-            outcomeStr = "BẠN THUA (+0 điểm)";
-        }
-
-        return reasonStr + "\n" + outcomeStr + "\n\nBạn có muốn tiếp tục ván mới và đổi bên không?";
+        // TODO
+        return "";
     }
 
+    /** AlertDialog describe(result) + [Tiếp tục] -> continueMatch(), [Dừng chơi] -> stopMatch(); startCountdown(). */
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.title_end_game)
-                .setMessage(describe(result))
-                .setPositiveButton(R.string.btn_continue, null)
-                .setNegativeButton(R.string.btn_stop, null)
-                .create();
+        // TODO
+        return super.onCreateDialog(savedInstanceState);
+    }
 
-        dialog.setOnShowListener(d -> {
-            Button btnContinue = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            Button btnStop = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+    /** Đếm ngược 30 giây trên hộp thoại. */
+    private void startCountdown() {
+        // TODO
+    }
 
-            btnContinue.setOnClickListener(v -> {
-                btnContinue.setEnabled(false);
-                btnStop.setEnabled(false);
-                dialog.setMessage("Đang chờ đối thủ phản hồi...");
-                myControl.sendData(new ObjectWrapper(ObjectWrapper.REQUEST_CONTINUE_MATCH, true));
-            });
+    /** Hình 4.14 bước 1-2: khóa 2 nút, "Đang chờ đối thủ phản hồi...", sendData(REQUEST_CONTINUE_MATCH, true). */
+    private void continueMatch() {
+        // TODO
+    }
 
-            btnStop.setOnClickListener(v -> {
-                myControl.sendData(new ObjectWrapper(ObjectWrapper.REQUEST_CONTINUE_MATCH, false));
-                dismissAllowingStateLoss();
-            });
-        });
+    /** sendData(REQUEST_CONTINUE_MATCH, false), đóng hộp thoại. */
+    private void stopMatch() {
+        // TODO
+    }
 
-        return dialog;
+    @Override
+    public void onDestroy() {
+        // TODO: hủy countdown
+        super.onDestroy();
     }
 }

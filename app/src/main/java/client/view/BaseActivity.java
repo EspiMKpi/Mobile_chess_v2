@@ -1,23 +1,20 @@
 package client.view;
 
-import android.content.Intent;
-import android.widget.Toast;
-
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import client.control.ClientCtr;
 
 /**
- * Chủ: N04. Lớp cha của mọi Activity phía N04 [LỆCH BC: bổ sung để xử lý vòng đời Android].
- * - onResume: báo ClientCtr màn hình nào đang hiện; mất kết nối (app bị dọn khi ở nền) -> về màn hình kết nối.
+ * Chủ: N04. Lớp cha của mọi Activity phía N04 (xử lý vòng đời Android).
+ * - onResume: báo ClientCtr màn hình nào đang hiện; mất kết nối -> về màn hình kết nối.
+ * - onPause: bỏ đánh dấu màn hình hiện tại.
  * - onDestroy: gỡ mọi đăng ký nhận gói tin của màn hình này.
  */
 public abstract class BaseActivity extends AppCompatActivity implements DataReceiver {
 
     protected final ClientCtr myControl = ClientCtr.getInstance();
 
-    /** Màn hình kết nối không cần kiểm tra kết nối. */
+    /** Màn hình kết nối override trả false (không cần kiểm tra kết nối). */
     protected boolean requiresConnection() {
         return true;
     }
@@ -25,45 +22,33 @@ public abstract class BaseActivity extends AppCompatActivity implements DataRece
     @Override
     protected void onResume() {
         super.onResume();
-        myControl.setCurrentActivity(this);
-        if (requiresConnection() && !myControl.isConnected()) {
-            Intent i = new Intent(this, ClientMainActivity.class);
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(i);
-            finish();
-        }
+        // TODO: myControl.setCurrentActivity(this);
+        //       requiresConnection() && !isConnected() -> mở ClientMainActivity (NEW_TASK | CLEAR_TASK), finish()
     }
 
     @Override
     protected void onPause() {
-        if (myControl.getCurrentActivity() == this) {
-            myControl.setCurrentActivity(null);
-        }
+        // TODO: nếu currentActivity == this thì setCurrentActivity(null)
         super.onPause();
     }
 
     @Override
     protected void onDestroy() {
-        myControl.unregister(this);
+        // TODO: myControl.unregister(this);
         super.onDestroy();
     }
 
     /** Đăng ký nhận nhiều mã lệnh một lúc - gọi trong onCreate, TRƯỚC khi gửi yêu cầu. */
     protected void listen(int... codes) {
-        for (int code : codes) {
-            myControl.register(code, this);
-        }
+        // TODO
     }
 
     protected void toast(String msg) {
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+        // TODO
     }
 
+    /** Hộp thoại xác nhận OK / Hủy; OK -> onYes.run(). */
     protected void confirm(String msg, Runnable onYes) {
-        new AlertDialog.Builder(this)
-                .setMessage(msg)
-                .setPositiveButton(android.R.string.ok, (d, w) -> onYes.run())
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+        // TODO
     }
 }

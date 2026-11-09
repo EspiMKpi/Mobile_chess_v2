@@ -1,15 +1,12 @@
 package server.control;
 
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 
-import model.GameResult;
 import model.IPAddress;
-import model.MoveRequest;
 import model.ObjectWrapper;
 import model.Player;
 import model.PlayerStat;
@@ -18,8 +15,8 @@ import server.dao.PlayerDAO;
 import server.view.ServerMainFrm;
 
 /**
- * Chủ: N04. Bộ điều khiển phía Server (ServerSocket, ServerListening, ServerProcessing).
- * Phase 0 chỉ chốt các chữ ký mà phần của N11 (ChessReferee) cần gọi.
+ * Chủ: N04. Bộ điều khiển phía Server: ServerSocket, luồng ServerListening nhận kết nối,
+ * mỗi client một luồng ServerProcessing. Giữ danh sách phiên (myProcess) và phòng đấu (myRooms).
  */
 public class ServerCtr {
 
@@ -31,7 +28,7 @@ public class ServerCtr {
     private final ArrayList<ServerProcessing> myProcess = new ArrayList<>();
     private final ArrayList<GameRoom> myRooms = new ArrayList<>();
 
-    /** Khóa riêng cho ghép cặp: chỉ bao quanh kiểm tra trạng thái + createRoom. KHÔNG lấy khóa GameRoom bên trong. */
+    /** Khóa riêng cho ghép cặp: bao quanh kiểm tra trạng thái + createRoom. KHÔNG lấy khóa GameRoom bên trong. */
     private final Object matchmakingLock = new Object();
 
     private final PlayerDAO playerDAO = new PlayerDAO();
@@ -46,122 +43,74 @@ public class ServerCtr {
         this.myAddress = new IPAddress("0.0.0.0", port);
     }
 
+    /** Mở ServerSocket tại cổng myAddress, khởi động myListening. Lỗi -> view.showMessage, trả false. */
     public boolean openServer() {
-        try {
-            myServerSocket = new ServerSocket(myAddress.getPort());
-            myListening = new ServerListening();
-            myListening.start();
-            return true;
-        } catch (IOException e) {
-            if (view != null) {
-                view.showMessage("Lỗi mở ServerSocket tại cổng " + myAddress.getPort() + ": " + e.getMessage());
-            }
-            return false;
-        }
+        // TODO
+        return false;
     }
 
+    /** Đóng ServerSocket, closeRoom() mọi phòng, đóng socket mọi client, xóa 2 danh sách. */
     public void stopServer() {
-        try {
-            if (myServerSocket != null && !myServerSocket.isClosed()) {
-                myServerSocket.close();
-            }
-        } catch (IOException ignored) {
-        }
-
-        synchronized (myRooms) {
-            for (GameRoom room : new ArrayList<>(myRooms)) {
-                try {
-                    room.closeRoom();
-                } catch (Exception ignored) {
-                }
-            }
-            myRooms.clear();
-        }
-
-        synchronized (myProcess) {
-            for (ServerProcessing sp : new ArrayList<>(myProcess)) {
-                try {
-                    if (sp.mySocket != null && !sp.mySocket.isClosed()) {
-                        sp.mySocket.close();
-                    }
-                } catch (IOException ignored) {
-                }
-            }
-            myProcess.clear();
-        }
+        // TODO
     }
 
+    /** Tìm phiên đang đăng nhập bằng playerId (null nếu không online). */
     public ServerProcessing findProcess(int playerId) {
-        synchronized (myProcess) {
-            for (ServerProcessing sp : myProcess) {
-                if (sp.getLoggedInPlayer() != null && sp.getLoggedInPlayer().getId() == playerId) {
-                    return sp;
-                }
-            }
-            return null;
-        }
+        // TODO
+        return null;
     }
 
     public void removeProcess(ServerProcessing sp) {
-        synchronized (myProcess) {
-            myProcess.remove(sp);
-        }
+        // TODO
     }
 
-    /** Kiểm tra cả hai rảnh rồi tạo phòng trong cùng một khóa. Trả null nếu không ghép được. */
+    /**
+     * Quản lý phiên đăng nhập (hình 4.4, bước 14-16):
+     * - Tài khoản đang có phiên ở máy khác: removeProcess + đóng socket phiên cũ (máy cũ về màn hình kết nối).
+     * - sp.setLoggedInPlayer(p); sp.setStatus(PlayerStat.IDLE).
+     * - broadcastOnlineList().
+     */
+    public void login(ServerProcessing sp, Player p) {
+        // TODO
+    }
+
+    /**
+     * Kiểm tra a, b khác null, khác nhau, chưa có phòng, đang IDLE rồi createRoom() - tất cả trong matchmakingLock.
+     * Không ghép được (B bận / không còn online) -> null.
+     */
     public GameRoom tryCreateRoom(ServerProcessing a, ServerProcessing b) {
-        synchronized (matchmakingLock) {
-            if (a == null || b == null || a == b) return null;
-            if (a.getRoom() != null || b.getRoom() != null) return null;
-            if (PlayerStat.BUSY.equals(a.getStatus()) || PlayerStat.BUSY.equals(b.getStatus())) return null;
-            return createRoom(a, b);
-        }
+        // TODO
+        return null;
     }
 
+    /**
+     * Tạo phòng (hình 4.11, bước 20-22): new GameRoom(this, a, b), cả hai setRoom + BUSY,
+     * thêm vào myRooms, room.startChallengeTimer() (hẹn giờ 30 giây chờ B trả lời), broadcastOnlineList().
+     */
     public GameRoom createRoom(ServerProcessing a, ServerProcessing b) {
-        GameRoom room = new GameRoom(this, a, b);
-        a.setRoom(room);
-        a.setStatus(PlayerStat.BUSY);
-        b.setRoom(room);
-        b.setStatus(PlayerStat.BUSY);
-        synchronized (myRooms) {
-            myRooms.add(room);
-        }
-        return room;
+        // TODO
+        return null;
     }
 
     public void removeRoom(GameRoom r) {
-        synchronized (myRooms) {
-            myRooms.remove(r);
-        }
+        // TODO
     }
 
+    /** Danh sách online (hình 4.11, bước 4-9): mỗi phiên đã đăng nhập -> getTotalPoint() -> new PlayerStat(p, point, status). */
     public ArrayList<PlayerStat> getOnlinePlayers() {
-        ArrayList<PlayerStat> list = new ArrayList<>();
-        synchronized (myProcess) {
-            for (ServerProcessing sp : myProcess) {
-                Player p = sp.getLoggedInPlayer();
-                if (p != null) {
-                    float totalPoint = playerDAO.getTotalPoint(p.getId());
-                    list.add(new PlayerStat(p, totalPoint, sp.getStatus()));
-                }
-            }
-        }
-        return list;
+        // TODO
+        return new ArrayList<>();
     }
 
+    /** Điểm + thông tin một người chơi để gửi kèm SERVER_START_MATCH (hình 4.12, bước 9-10). */
+    public PlayerStat getPlayerStat(ServerProcessing sp) {
+        // TODO
+        return null;
+    }
+
+    /** Gửi SERVER_INFORM_ONLINE_LIST (getOnlinePlayers()) cho mọi phiên đã đăng nhập. */
     public void broadcastOnlineList() {
-        ArrayList<PlayerStat> list = getOnlinePlayers();
-        ObjectWrapper wrapper = new ObjectWrapper(ObjectWrapper.SERVER_INFORM_ONLINE_LIST, list);
-        ArrayList<ServerProcessing> recipients;
-        synchronized (myProcess) {
-            recipients = new ArrayList<>(myProcess);
-        }
-        for (ServerProcessing sp : recipients) {
-            if (sp.getLoggedInPlayer() != null) {
-                sp.sendData(wrapper);
-            }
-        }
+        // TODO
     }
 
     public ArrayList<ServerProcessing> getMyProcess() {
@@ -174,26 +123,10 @@ public class ServerCtr {
 
     /** Luồng lắng nghe kết nối từ client. */
     public class ServerListening extends Thread {
+        /** Vòng lặp accept(): mỗi socket mới -> new ServerProcessing(socket), thêm vào myProcess, start(). */
         @Override
         public void run() {
-            try {
-                while (myServerSocket != null && !myServerSocket.isClosed()) {
-                    Socket socket = myServerSocket.accept();
-                    socket.setKeepAlive(true);
-                    ServerProcessing sp = new ServerProcessing(socket);
-                    synchronized (myProcess) {
-                        myProcess.add(sp);
-                    }
-                    sp.start();
-                    if (view != null) {
-                        view.showMessage("Client mới kết nối từ: " + socket.getRemoteSocketAddress());
-                    }
-                }
-            } catch (IOException e) {
-                if (view != null && myServerSocket != null && !myServerSocket.isClosed()) {
-                    view.showMessage("Lỗi ServerListening: " + e.getMessage());
-                }
-            }
+            // TODO
         }
     }
 
@@ -210,226 +143,103 @@ public class ServerCtr {
             this.mySocket = s;
         }
 
+        /**
+         * Tạo oos TRƯỚC ois (tránh nghẽn bắt tay stream), rồi vòng lặp readObject() -> handleMessage().
+         * Bắt RuntimeException của từng gói để luồng không chết; mất kết nối -> onDisconnect() (trong finally).
+         */
         @Override
         public void run() {
-            try {
-                // Tạo OOS trước OIS để tránh nghẽn bắt tay stream
-                oos = new ObjectOutputStream(mySocket.getOutputStream());
-                oos.flush();
-                ois = new ObjectInputStream(mySocket.getInputStream());
-
-                while (true) {
-                    Object o = ois.readObject();
-                    if (!(o instanceof ObjectWrapper)) continue;
-                    try {
-                        handleMessage((ObjectWrapper) o);
-                    } catch (RuntimeException e) {
-                        System.err.println("ServerProcessing.handleMessage error: " + e);
-                        if (view != null) {
-                            view.showMessage("Lỗi xử lý gói tin: " + e);
-                        }
-                    }
-                }
-            } catch (IOException | ClassNotFoundException e) {
-                // Client ngắt kết nối hoặc lỗi mạng
-            } finally {
-                onDisconnect();
-            }
+            // TODO
         }
 
+        /** switch theo performative, mỗi case gọi một hàm handleXxx bên dưới. */
         private void handleMessage(ObjectWrapper w) {
             switch (w.getPerformative()) {
-                case ObjectWrapper.LOGIN_USER: {
-                    if (loggedInPlayer != null) {
-                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, "logged_in"));
-                        break;
-                    }
-                    if (!(w.getData() instanceof Player)) {
-                        break;
-                    }
-                    Player p = (Player) w.getData();
-                    boolean ok = playerDAO.checkLogin(p);
-                    if (!ok) {
-                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, "false"));
-                        break;
-                    }
-
-                    ServerProcessing oldProcess = null;
-                    synchronized (myProcess) {
-                        oldProcess = findProcess(p.getId());
-                        if (oldProcess != null && oldProcess != this) {
-                            removeProcess(oldProcess);
-                        }
-                        loggedInPlayer = p;
-                        status = PlayerStat.IDLE;
-                        p.setPassword(null);
-                    }
-
-                    if (oldProcess != null && oldProcess != this) {
-                        try {
-                            if (oldProcess.getMySocket() != null && !oldProcess.getMySocket().isClosed()) {
-                                oldProcess.getMySocket().close();
-                            }
-                        } catch (IOException ignored) {
-                        }
-                    }
-
-                    sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, p));
-                    if (view != null) {
-                        view.showMessage("Đăng nhập thành công: " + p.getUsername() + " (ID: " + p.getId() + ")");
-                    }
-                    broadcastOnlineList();
-                    break;
-                }
-
-                case ObjectWrapper.REGISTER_USER: {
-                    if (!(w.getData() instanceof Player)) {
-                        break;
-                    }
-                    Player p = (Player) w.getData();
-                    boolean ok = playerDAO.registerPlayer(p);
-                    sendData(new ObjectWrapper(ObjectWrapper.REPLY_REGISTER_USER, ok ? "ok" : "false"));
-                    if (ok && view != null) {
-                        view.showMessage("Đăng ký tài khoản mới: " + p.getUsername());
-                    }
-                    break;
-                }
-
-                case ObjectWrapper.EDIT_PLAYER: {
-                    if (loggedInPlayer != null && w.getData() instanceof Player) {
-                        Player p = (Player) w.getData();
-                        p.setId(loggedInPlayer.getId());
-                        boolean ok = playerDAO.editPlayer(p);
-                        if (ok) {
-                            loggedInPlayer.setName(p.getName());
-                            loggedInPlayer.setEmail(p.getEmail());
-                            loggedInPlayer.setTel(p.getTel());
-                        }
-                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_EDIT_PLAYER, ok ? "ok" : "false"));
-                    } else {
-                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_EDIT_PLAYER, "false"));
-                    }
-                    break;
-                }
-
-                case ObjectWrapper.CHANGE_PASSWORD: {
-                    if (loggedInPlayer != null && w.getData() instanceof String[]) {
-                        String[] arr = (String[]) w.getData();
-                        if (arr.length == 2 && arr[0] != null && arr[1] != null) {
-                            boolean ok = playerDAO.changePassword(loggedInPlayer.getId(), arr[0], arr[1]);
-                            sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHANGE_PASSWORD, ok ? "ok" : "false"));
-                        } else {
-                            sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHANGE_PASSWORD, "false"));
-                        }
-                    } else {
-                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHANGE_PASSWORD, "false"));
-                    }
-                    break;
-                }
-
-                case ObjectWrapper.GET_PLAYER_HISTORY: {
-                    if (loggedInPlayer != null) {
-                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_PLAYER_HISTORY,
-                                matchDAO.getMatchesByPlayer(loggedInPlayer.getId())));
-                    }
-                    break;
-                }
-
-                case ObjectWrapper.GET_ONLINE_LIST: {
-                    sendData(new ObjectWrapper(ObjectWrapper.REPLY_ONLINE_LIST, getOnlinePlayers()));
-                    break;
-                }
-
-                case ObjectWrapper.GET_RANKING: {
-                    sendData(new ObjectWrapper(ObjectWrapper.REPLY_RANKING, playerDAO.getRanking()));
-                    break;
-                }
-
-                case ObjectWrapper.SEND_CHALLENGE: {
-                    if (loggedInPlayer == null || !(w.getData() instanceof PlayerStat)) {
-                        break;
-                    }
-                    PlayerStat target = (PlayerStat) w.getData();
-                    ServerProcessing b = findProcess(target.getId());
-                    GameRoom newRoom = tryCreateRoom(this, b);
-                    if (newRoom == null) {
-                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_BUSY, target));
-                    } else {
-                        float pt = playerDAO.getTotalPoint(loggedInPlayer.getId());
-                        PlayerStat inviterStat = new PlayerStat(loggedInPlayer, pt, PlayerStat.BUSY);
-                        b.sendData(new ObjectWrapper(ObjectWrapper.SERVER_INFORM_CHALLENGE, inviterStat));
-                        broadcastOnlineList();
-                    }
-                    break;
-                }
-
-                case ObjectWrapper.REPLY_CHALLENGE_DECISION: {
-                    if (room != null && w.getData() instanceof Boolean) {
-                        room.receiveChallengeDecision(this, (Boolean) w.getData());
-                    }
-                    break;
-                }
-
-                case ObjectWrapper.QUIT_GAME: {
-                    if (room != null) {
-                        ServerProcessing opponent = (room.getWhitePlayer() == this)
-                                ? room.getBlackPlayer() : room.getWhitePlayer();
-                        room.endGame(opponent, GameResult.RESIGN);
-                    }
-                    break;
-                }
-
-                case ObjectWrapper.REQUEST_CONTINUE_MATCH: {
-                    if (room != null && w.getData() instanceof Boolean) {
-                        room.receiveContinueDecision(this, (Boolean) w.getData());
-                    }
-                    break;
-                }
-
-                case ObjectWrapper.SEND_MOVE: {
-                    // Chuyển cho trọng tài của N11
-                    if (room != null && w.getData() instanceof MoveRequest) {
-                        room.handleMove(this, (MoveRequest) w.getData());
-                    }
-                    break;
-                }
-
+                // TODO: LOGIN_USER, REGISTER_USER, EDIT_PLAYER, CHANGE_PASSWORD, GET_PLAYER_HISTORY,
+                //       GET_ONLINE_LIST, GET_RANKING, SEND_CHALLENGE, REPLY_CHALLENGE_DECISION,
+                //       QUIT_GAME, REQUEST_CONTINUE_MATCH, SEND_MOVE
                 default:
                     break;
             }
         }
 
-        private void onDisconnect() {
-            if (room != null) {
-                room.playerLeft(this);
-            }
-            removeProcess(this);
-            try {
-                if (mySocket != null && !mySocket.isClosed()) {
-                    mySocket.close();
-                }
-            } catch (IOException ignored) {
-            }
-            if (view != null) {
-                String name = (loggedInPlayer != null) ? loggedInPlayer.getUsername() : String.valueOf(mySocket.getRemoteSocketAddress());
-                view.showMessage("Client đã ngắt kết nối: " + name);
-            }
-            if (loggedInPlayer != null) {
-                broadcastOnlineList();
-            }
+        /**
+         * Hình 4.4, bước 8-17: playerDAO.checkLogin(p).
+         * Sai -> REPLY_LOGIN_USER "false"; đúng -> login(this, p), REPLY_LOGIN_USER kèm p.
+         */
+        private void handleLogin(Player p) {
+            // TODO
         }
 
-        /** Gửi gói tin về client này (được ChessReferee của N11 gọi). */
+        /** Hình 4.3, bước 11-16: playerDAO.registerPlayer(p) -> REPLY_REGISTER_USER "ok" | "false". */
+        private void handleRegister(Player p) {
+            // TODO
+        }
+
+        /**
+         * Hình 4.5, bước 13-17: p.setId(loggedInPlayer.getId()); playerDAO.editPlayer(p);
+         * thành công -> cập nhật loggedInPlayer; REPLY_EDIT_PLAYER "ok" | "false".
+         */
+        private void handleEditPlayer(Player p) {
+            // TODO
+        }
+
+        /** Hình 4.6, bước 8-12: data = String[]{oldPass, newPass}; playerDAO.changePassword(...) -> REPLY_CHANGE_PASSWORD. */
+        private void handleChangePassword(String[] passwords) {
+            // TODO
+        }
+
+        /** Hình 4.7, bước 6-13: matchDAO.getMatchesByPlayer(loggedInPlayer.getId()) -> REPLY_PLAYER_HISTORY. */
+        private void handleGetHistory() {
+            // TODO
+        }
+
+        /** Hình 4.11, bước 4-10: getOnlinePlayers() -> REPLY_ONLINE_LIST. */
+        private void handleGetOnlineList() {
+            // TODO
+        }
+
+        /** Hình 4.8, bước 6-12: playerDAO.getRanking() -> REPLY_RANKING. */
+        private void handleGetRanking() {
+            // TODO
+        }
+
+        /**
+         * Hình 4.11, bước 19-24: findProcess(target.getId()), tryCreateRoom(this, b).
+         * null -> REPLY_CHALLENGE_BUSY cho A; ngược lại SERVER_INFORM_CHALLENGE (PlayerStat của A) cho B.
+         */
+        private void handleSendChallenge(PlayerStat target) {
+            // TODO
+        }
+
+        /** Hình 4.12, bước 4: room.receiveChallengeDecision(this, accept). */
+        private void handleChallengeDecision(boolean accept) {
+            // TODO
+        }
+
+        /** Hình 4.13, bước 4: room.endGame(đối thủ, GameResult.RESIGN). */
+        private void handleQuitGame() {
+            // TODO
+        }
+
+        /** Hình 4.14, bước 4 / 8: room.receiveContinueDecision(this, accept). */
+        private void handleContinueDecision(boolean accept) {
+            // TODO
+        }
+
+        /** Chuyển SEND_MOVE (MoveRequest) cho room.handleMove(this, req) - trọng tài của N11. */
+        private void handleSendMove(Object moveRequest) {
+            // TODO
+        }
+
+        /** Mất kết nối = đăng xuất: room.playerLeft(this), removeProcess, đóng socket, broadcastOnlineList nếu đã đăng nhập. */
+        private void onDisconnect() {
+            // TODO
+        }
+
+        /** Gửi gói tin về client này: writeObject + flush + reset (GameRoom và ChessReferee cũng gọi). */
         public synchronized void sendData(Object obj) {
-            try {
-                if (oos != null) {
-                    oos.writeObject(obj);
-                    oos.flush();
-                    oos.reset();
-                }
-            } catch (IOException e) {
-                // Bỏ qua lỗi gửi khi socket bị đóng
-            }
+            // TODO
         }
 
         public Player getLoggedInPlayer() { return loggedInPlayer; }

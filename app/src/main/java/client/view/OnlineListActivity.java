@@ -1,27 +1,21 @@
 package client.view;
 
-import android.app.Activity;
-import android.content.Intent;
 import android.os.Bundle;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
-import java.util.List;
 
 import client.view.adapter.OnlinePlayerAdapter;
-import client.view.ai.AISetupDialog;
 import model.ObjectWrapper;
-import model.Player;
 import model.PlayerStat;
 import vn.edu.ptit.mobilechess.R;
 
 /**
- * Chủ: N04. Hình 3.1. Nhận REPLY_ONLINE_LIST, SERVER_INFORM_ONLINE_LIST, SERVER_INFORM_CHALLENGE.
- * Lời mời thách đấu được hiển thị trên ClientCtr.getCurrentActivity() (người chơi có thể đang ở màn hình khác).
+ * Chủ: N04. Danh sách online (hình 4.11). Nhận REPLY_ONLINE_LIST và SERVER_INFORM_ONLINE_LIST.
+ * Từ đây mở các màn hình cá nhân (sửa thông tin, đổi mật khẩu, lịch sử, bảng xếp hạng), chơi với máy (N11),
+ * thách đấu và đăng xuất. Lời mời đến do ClientCtr.showInviteDialog() hiển thị.
  */
 public class OnlineListActivity extends BaseActivity {
 
@@ -34,115 +28,41 @@ public class OnlineListActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_online_list);
         setTitle(R.string.title_online);
-        listen(ObjectWrapper.REPLY_ONLINE_LIST, ObjectWrapper.SERVER_INFORM_ONLINE_LIST,
-                ObjectWrapper.SERVER_INFORM_CHALLENGE);
-
-        lblUserInfo = findViewById(R.id.lblUserInfo);
-        tblOnlineUsers = findViewById(R.id.tblOnlineUsers);
-        tblOnlineUsers.setLayoutManager(new LinearLayoutManager(this));
-
-        adapter = new OnlinePlayerAdapter(player -> {
-            // Callback khi người dùng chạm chọn 1 người chơi
-        });
-        tblOnlineUsers.setAdapter(adapter);
-
-        findViewById(R.id.btnEditProfile).setOnClickListener(
-                v -> startActivity(new Intent(this, EditPlayerActivity.class)));
-        findViewById(R.id.btnChangePass).setOnClickListener(
-                v -> startActivity(new Intent(this, ChangePasswordActivity.class)));
-        findViewById(R.id.btnHistory).setOnClickListener(
-                v -> startActivity(new Intent(this, PlayerHistoryActivity.class)));
-        findViewById(R.id.btnRanking).setOnClickListener(
-                v -> startActivity(new Intent(this, RankingActivity.class)));
-        findViewById(R.id.btnPlayAI).setOnClickListener(v -> AISetupDialog.open(this));   // lớp của N11
-        findViewById(R.id.btnLogout).setOnClickListener(v -> confirm("Bạn có chắc chắn muốn đăng xuất?", this::logout));
-        findViewById(R.id.btnChallenge).setOnClickListener(v -> challenge());
-
-        myControl.sendData(new ObjectWrapper(ObjectWrapper.GET_ONLINE_LIST, null));
+        // TODO: bước 1 - listen(REPLY_ONLINE_LIST, SERVER_INFORM_ONLINE_LIST)
+        // TODO: findViewById, adapter = new OnlinePlayerAdapter(...)
+        // TODO: nút btnEditProfile, btnChangePass, btnHistory, btnRanking -> startActivity(...)
+        //       btnPlayAI -> AISetupDialog.open(this) (N11); btnLogout -> confirm(...) rồi logout();
+        //       btnChallenge -> challenge()
+        // TODO: bước 2 - sendData(GET_ONLINE_LIST, null)
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        Player me = myControl.getMyPlayer();
-        if (me != null) {
-            lblUserInfo.setText(getString(R.string.greeting, me.getName()));
-        }
+        // TODO: hiện lời chào với tên myPlayer lên lblUserInfo
     }
 
-    /** Bỏ chính mình; giữ dòng đang chọn theo id sau khi làm mới. */
+    /** Bước 12: bỏ chính mình khỏi danh sách, giữ dòng đang chọn theo id sau khi làm mới. */
     public void updateOnlineTable(ArrayList<PlayerStat> list) {
-        if (list == null) return;
-        Player me = myControl.getMyPlayer();
-        int myId = (me != null) ? me.getId() : -1;
-
-        List<PlayerStat> filtered = new ArrayList<>();
-        for (PlayerStat p : list) {
-            if (p != null && p.getId() != myId) {
-                filtered.add(p);
-            }
-        }
-
-        PlayerStat currentSelected = adapter.getSelected();
-        int keepSelectedId = (currentSelected != null) ? currentSelected.getId() : -1;
-
-        adapter.setPlayers(filtered);
-
-        if (keepSelectedId != -1) {
-            adapter.setSelectedId(keepSelectedId);
-        }
+        // TODO
     }
 
+    /**
+     * Bước 13-14: chưa chọn ai -> nhắc chọn; người đó BUSY -> báo bận;
+     * ngược lại ChallengeDialog.newInstance(selected).show(...).
+     */
     private void challenge() {
-        PlayerStat selected = adapter.getSelected();
-        if (selected == null) {
-            toast("Chạm chọn một người chơi để thách đấu");
-            return;
-        }
-        if (PlayerStat.BUSY.equalsIgnoreCase(selected.getStatus())) {
-            toast("Người chơi này đang bận");
-            return;
-        }
-
-        ChallengeDialog.newInstance(selected).show(getSupportFragmentManager(), ChallengeDialog.TAG);
+        // TODO
     }
 
+    /** Đăng xuất: myControl.closeConnection(), về ClientMainActivity (NEW_TASK | CLEAR_TASK), finish(). */
     private void logout() {
-        myControl.closeConnection();
-        Intent intent = new Intent(this, ClientMainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
+        // TODO
     }
 
+    /** Bước 11: REPLY_ONLINE_LIST / SERVER_INFORM_ONLINE_LIST -> updateOnlineTable(list). */
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
-        switch (data.getPerformative()) {
-            case ObjectWrapper.REPLY_ONLINE_LIST:
-            case ObjectWrapper.SERVER_INFORM_ONLINE_LIST:
-                if (data.getData() instanceof ArrayList) {
-                    @SuppressWarnings("unchecked")
-                    ArrayList<PlayerStat> list = (ArrayList<PlayerStat>) data.getData();
-                    updateOnlineTable(list);
-                }
-                break;
-
-            case ObjectWrapper.SERVER_INFORM_CHALLENGE:
-                if (data.getData() instanceof PlayerStat) {
-                    PlayerStat inviter = (PlayerStat) data.getData();
-                    Activity cur = myControl.getCurrentActivity();
-                    if (cur instanceof AppCompatActivity && !((AppCompatActivity) cur).getSupportFragmentManager().isStateSaved()) {
-                        InviteDialog.newInstance(inviter)
-                                .show(((AppCompatActivity) cur).getSupportFragmentManager(), InviteDialog.TAG);
-                    } else {
-                        // Không có activity nào đang hiển thị hoặc app đang ở nền -> từ chối ngay
-                        myControl.sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_DECISION, false));
-                    }
-                }
-                break;
-
-            default:
-                break;
-        }
+        // TODO
     }
 }
