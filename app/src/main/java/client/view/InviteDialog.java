@@ -1,10 +1,13 @@
 package client.view;
 
 import android.app.Dialog;
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -12,18 +15,17 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
 import client.control.ClientCtr;
+import model.MatchStartInfo;
 import model.ObjectWrapper;
 import model.PlayerStat;
 import vn.edu.ptit.mobilechess.R;
 
-/**
- * Chủ: N04. Hộp thoại nhận lời mời thách đấu (Hình 4.9, 4.10a, 4.11, 4.12).
- * Hiện ở bất kỳ màn hình nào khi nhận SERVER_INFORM_CHALLENGE.
- */
+/** Chủ: N04. Hộp thoại nhận lời mời thách đấu ở bất kỳ màn hình nào (Hình 4.9, 4.11, 4.12). */
 public class InviteDialog extends DialogFragment implements DataReceiver, View.OnClickListener {
 
     public static final String TAG = "InviteDialog";
     private static final String ARG_INVITER = "inviter";
+    private static final long INVITE_TIMEOUT_MS = 30_000L;
 
     private TextView lblInviterInfo;
     private TextView lblCountdown;
@@ -31,6 +33,7 @@ public class InviteDialog extends DialogFragment implements DataReceiver, View.O
     private Button btnReject;
     private final ClientCtr myControl = ClientCtr.getInstance();
     private PlayerStat inviter;
+    private CountDownTimer countDownTimer;
 
     public static InviteDialog newInstance(PlayerStat inviter) {
         InviteDialog dialog = new InviteDialog();
@@ -56,10 +59,13 @@ public class InviteDialog extends DialogFragment implements DataReceiver, View.O
         btnAccept.setOnClickListener(this);
         btnReject.setOnClickListener(this);
 
-        // [HƯỚNG DẪN - Hình 4.11, bước 25-27]
-        // 1. Hiển thị inviter (username + totalPoint) lên lblInviterInfo.
-        // 2. Đăng ký nhận SERVER_START_MATCH và SERVER_CANCEL_CHALLENGE với myControl.
-        // 3. Bật CountDownTimer 30 giây cập nhật lblCountdown ("Tự động từ chối sau: XX giây").
+        String name = inviter != null ? inviter.getUsername() : "";
+        float point = inviter != null ? inviter.getTotalPoint() : 0f;
+        lblInviterInfo.setText(getString(R.string.msg_invite, name, point));
+
+        myControl.register(ObjectWrapper.SERVER_START_MATCH, this);
+        myControl.register(ObjectWrapper.SERVER_CANCEL_CHALLENGE, this);
+        startCountdown();
 
         return new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.title_invite)
@@ -67,20 +73,72 @@ public class InviteDialog extends DialogFragment implements DataReceiver, View.O
                 .create();
     }
 
+    private void startCountdown() {
+        countDownTimer = new CountDownTimer(INVITE_TIMEOUT_MS, 1000L) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                if (lblCountdown != null) {
+                    long sec = (millisUntilFinished + 999L) / 1000L;
+                    lblCountdown.setText("Tự động từ chối sau: " + sec + " giây");
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                if (lblCountdown != null) {
+                    lblCountdown.setText("Đã hết thời gian trả lời");
+                }
+            }
+        }.start();
+    }
+
     @Override
     public void onClick(View v) {
-        // [HƯỚNG DẪN - Hình 4.12, bước 1-2]
-        // - btnAccept: gửi REPLY_CHALLENGE_DECISION(true), khóa 2 nút, chờ SERVER_START_MATCH (hoặc SERVER_CANCEL_CHALLENGE).
-        // - btnReject: gửi REPLY_CHALLENGE_DECISION(false), dismissAllowingStateLoss().
+        if (v.getId() == R.id.btnAccept) {
+            btnAccept.setEnabled(false);
+            btnReject.setEnabled(false);
+            myControl.sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_DECISION, true));
+        } else if (v.getId() == R.id.btnReject) {
+            btnAccept.setEnabled(false);
+            btnReject.setEnabled(false);
+            myControl.sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_DECISION, false));
+            dismissAllowingStateLoss();
+        }
     }
 
     @Override
     public void receivedDataProcessing(ObjectWrapper d) {
-        // [HƯỚNG DẪN - Hình 4.11 & 4.12]
-        // Kiểm tra if (!isAdded()) return;
-        // - SERVER_CANCEL_CHALLENGE: Toast lý do ("CANCEL" / "TIMEOUT" / "DISCONNECT") rồi dismissAllowingStateLoss().
-        // - SERVER_START_MATCH: mở MatchPlayActivity của N11 với Intent extra MatchPlayActivity.EXTRA_START_INFO
-        //   chứa (MatchStartInfo) d.getData(), rồi dismissAllowingStateLoss().
+        if (!isAdded()) {
+            return;
+        }
+        int code = d.getPerformative();
+        if (code == ObjectWrapper.SERVER_CANCEL_CHALLENGE) {
+            String reason = d.getData() instanceof String ? (String) d.getData() : "CANCEL";
+            String msg;
+            if ("TIMEOUT".equals(reason)) {
+                msg = "Lời mời đã hết hạn sau 30 giây";
+            } else if ("DISCONNECT".equals(reason)) {
+                msg = "Người mời đã mất kết nối";
+            } else {
+                msg = "Người mời đã hủy lời mời";
+            }
+            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+            dismissAllowingStateLoss();
+        } else if (code == ObjectWrapper.SERVER_START_MATCH && d.getData() instanceof MatchStartInfo) {
+            Intent i = new Intent(requireContext(), MatchPlayActivity.class);
+            i.putExtra(MatchPlayActivity.EXTRA_START_INFO, (MatchStartInfo) d.getData());
+            startActivity(i);
+            dismissAllowingStateLoss();
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (countDownTimer != null) {
+            countDownTimer.cancel();
+            countDownTimer = null;
+        }
+        super.onDestroyView();
     }
 
     @Override

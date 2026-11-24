@@ -3,17 +3,8 @@
 <resources>
     <string name="app_name">Cờ Vua Trực Tuyến</string>
 
-    <!-- [HƯỚNG DẪN BƯỚC 5 - Dọn chuỗi thừa] Sau khi xóa ClientMainActivity và activity_client_main.xml,
-         có thể xóa 6 chuỗi title_connect, label_host, label_port, default_host, default_port, btn_connect bên dưới. -->
-    <string name="title_connect">Kết nối máy chủ</string>
-    <string name="label_host">Địa chỉ server</string>
-    <string name="label_port">Cổng</string>
-    <string name="default_host">10.0.2.2</string>
-    <string name="default_port">9999</string>
-    <string name="btn_connect">Kết nối</string>
-
     <!-- Đăng nhập, đăng ký, thông tin cá nhân, lịch sử, BXH -->
-    <string name="title_login">Đăng nhập</string>
+    <string name="title_login">Đăng nhập hệ thống</string>
     <string name="title_register">Đăng ký tài khoản</string>
     <string name="title_edit_player">Thông tin người chơi</string>
     <string name="title_change_password">Đổi mật khẩu</string>
@@ -48,6 +39,7 @@
     <string name="btn_logout">Đăng xuất</string>
     <string name="btn_challenge">Thách đấu</string>
 
+    <string name="hint_auto_discover">(Ứng dụng tự tìm và kết nối server trong cùng mạng Wi-Fi khi bấm Đăng nhập)</string>
     <string name="hint_auto_update">(tự động cập nhật)</string>
     <string name="hint_pick_idle">Chạm chọn một người chơi RẢNH rồi bấm Thách đấu</string>
     <string name="greeting">Xin chào: %1$s</string>

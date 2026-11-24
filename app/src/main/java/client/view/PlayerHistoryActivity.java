@@ -8,13 +8,15 @@ import android.widget.TextView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.ArrayList;
+
 import client.view.adapter.MatchHistoryAdapter;
+import model.Match;
 import model.ObjectWrapper;
+import model.Player;
 import vn.edu.ptit.mobilechess.R;
 
-/**
- * Chủ: N04. Xem lịch sử các ván đấu đã chơi (Hình 4.1, 4.2a, 4.7).
- */
+/** Chủ: N04. Xem lịch sử các trận đấu (Hình 4.1, 4.7). */
 public class PlayerHistoryActivity extends BaseActivity implements View.OnClickListener {
 
     private RecyclerView tblHistory;
@@ -33,11 +35,14 @@ public class PlayerHistoryActivity extends BaseActivity implements View.OnClickL
         btnClose = findViewById(R.id.btnClose);
         btnClose.setOnClickListener(this);
 
+        Player me = myControl.getMyPlayer();
+        int myId = me != null ? me.getId() : -1;
         tblHistory.setLayoutManager(new LinearLayoutManager(this));
-        // [HƯỚNG DẪN - Hình 4.7, bước 3-4]
-        // 1. Tạo adapter = new MatchHistoryAdapter(myControl.getMyPlayer().getId()); tblHistory.setAdapter(adapter);
-        // 2. myControl.register(ObjectWrapper.REPLY_PLAYER_HISTORY, this);
-        // 3. myControl.sendData(new ObjectWrapper(ObjectWrapper.GET_PLAYER_HISTORY, null));
+        adapter = new MatchHistoryAdapter(myId);
+        tblHistory.setAdapter(adapter);
+
+        listen(ObjectWrapper.REPLY_PLAYER_HISTORY);
+        myControl.sendData(new ObjectWrapper(ObjectWrapper.GET_PLAYER_HISTORY, null));
     }
 
     @Override
@@ -48,10 +53,15 @@ public class PlayerHistoryActivity extends BaseActivity implements View.OnClickL
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public void receivedDataProcessing(ObjectWrapper d) {
-        // [HƯỚNG DẪN - Hình 4.7, bước 14-15]
-        // Nếu REPLY_PLAYER_HISTORY:
-        //  - Đổ ArrayList<Match> vào adapter.setMatches(...).
-        //  - Nếu danh sách rỗng -> hiện lblEmpty, ẩn tblHistory; ngược lại ẩn lblEmpty, hiện tblHistory.
+        if (d.getPerformative() != ObjectWrapper.REPLY_PLAYER_HISTORY) {
+            return;
+        }
+        ArrayList<Match> matches = d.getData() instanceof ArrayList<?> ? (ArrayList<Match>) d.getData() : new ArrayList<>();
+        adapter.setMatches(matches);
+        boolean empty = matches.isEmpty();
+        lblEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
+        tblHistory.setVisibility(empty ? View.GONE : View.VISIBLE);
     }
 }

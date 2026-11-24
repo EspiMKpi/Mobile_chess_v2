@@ -8,9 +8,7 @@ import android.widget.EditText;
 import model.ObjectWrapper;
 import vn.edu.ptit.mobilechess.R;
 
-/**
- * Chủ: N04. Đổi mật khẩu (Hình 4.1, 4.2a, 4.6).
- */
+/** Chủ: N04. Đổi mật khẩu (Hình 4.1, 4.6). */
 public class ChangePasswordActivity extends BaseActivity implements View.OnClickListener {
 
     private EditText txtOldPassword;
@@ -34,27 +32,63 @@ public class ChangePasswordActivity extends BaseActivity implements View.OnClick
         btnSave.setOnClickListener(this);
         btnCancel.setOnClickListener(this);
 
-        // [HƯỚNG DẪN - Hình 4.6, bước 3]
-        // myControl.register(ObjectWrapper.REPLY_CHANGE_PASSWORD, this);
+        listen(ObjectWrapper.REPLY_CHANGE_PASSWORD);
     }
 
-    /** TODO(N04 - Hình 4.6, bước 5): kiểm tra không rỗng, mật khẩu mới khớp xác nhận, khác mật khẩu cũ. */
     public boolean validateInput() {
+        String oldPass = txtOldPassword.getText().toString();
+        String newPass = txtNewPassword.getText().toString();
+        String confirm = txtConfirmPassword.getText().toString();
+        if (oldPass.isEmpty()) {
+            txtOldPassword.setError("Nhập mật khẩu hiện tại");
+            return false;
+        }
+        if (newPass.isEmpty()) {
+            txtNewPassword.setError("Nhập mật khẩu mới");
+            return false;
+        }
+        if (!newPass.equals(confirm)) {
+            txtConfirmPassword.setError("Mật khẩu xác nhận không khớp");
+            return false;
+        }
+        if (newPass.equals(oldPass)) {
+            txtNewPassword.setError("Mật khẩu mới phải khác mật khẩu hiện tại");
+            return false;
+        }
         return true;
     }
 
     @Override
     public void onClick(View v) {
-        // [HƯỚNG DẪN - Hình 4.6, bước 4-6]
-        // - btnSave: gọi validateInput(), gửi ObjectWrapper(CHANGE_PASSWORD, new String[]{oldPass, newPass}).
-        // - btnCancel: finish().
+        if (v.getId() == R.id.btnSave) {
+            if (!validateInput()) {
+                return;
+            }
+            String[] payload = {
+                    txtOldPassword.getText().toString(),
+                    txtNewPassword.getText().toString()
+            };
+            btnSave.setEnabled(false);
+            if (!myControl.sendData(new ObjectWrapper(ObjectWrapper.CHANGE_PASSWORD, payload))) {
+                btnSave.setEnabled(true);
+                toast("Chưa kết nối server");
+            }
+        } else if (v.getId() == R.id.btnCancel) {
+            finish();
+        }
     }
 
     @Override
     public void receivedDataProcessing(ObjectWrapper d) {
-        // [HƯỚNG DẪN - Hình 4.6, bước 13-14]
-        // Nếu REPLY_CHANGE_PASSWORD:
-        // - "ok": Toast "Đổi mật khẩu thành công", finish().
-        // - Ngược lại: Toast "Mật khẩu hiện tại không đúng".
+        if (d.getPerformative() != ObjectWrapper.REPLY_CHANGE_PASSWORD) {
+            return;
+        }
+        btnSave.setEnabled(true);
+        if ("ok".equals(d.getData())) {
+            toast("Đổi mật khẩu thành công");
+            finish();
+        } else {
+            toast("Mật khẩu hiện tại không đúng");
+        }
     }
 }

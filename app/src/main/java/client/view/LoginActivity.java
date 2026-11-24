@@ -11,7 +11,7 @@ import model.ObjectWrapper;
 import model.Player;
 import vn.edu.ptit.mobilechess.R;
 
-/** Chủ: N04. Đăng nhập (hình 4.2a, 4.4). */
+/** Chủ: N04. Màn hình đầu tiên của ứng dụng: Đăng nhập (Hình 4.1, 4.4). */
 public class LoginActivity extends BaseActivity implements View.OnClickListener {
 
     private EditText txtUsername;
@@ -25,7 +25,7 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener 
         setContentView(R.layout.activity_login);
         setTitle(R.string.title_login);
 
-        myControl.register(ObjectWrapper.REPLY_LOGIN_USER, this);    // bước 1
+        listen(ObjectWrapper.REPLY_LOGIN_USER);
 
         txtUsername = findViewById(R.id.txtUsername);
         txtPassword = findViewById(R.id.txtPassword);
@@ -36,7 +36,7 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener 
     }
 
     @Override
-    public void onClick(View v) {                                    // bước 3
+    public void onClick(View v) {
         if (v.getId() == R.id.btnLogin) {
             String username = txtUsername.getText().toString().trim();
             String password = txtPassword.getText().toString();
@@ -48,59 +48,47 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener 
                 txtPassword.setError("Nhập mật khẩu");
                 return;
             }
-            Player player = new Player();                            // bước 4-5
-            player.setUsername(username);
-            player.setPassword(password);
-
-            // [HƯỚNG DẪN BƯỚC 4a - Hình 4.4, bước 6-13] Thay đoạn sendData bên dưới bằng đoạn sau để tự tìm
-            // server qua openConnection() trên luồng nền rồi mới gửi gói tin LOGIN_USER:
-            //
-            // btnLogin.setEnabled(false);
-            // new Thread(() -> {
-            //     boolean connected = myControl.openConnection();
-            //     if (!connected) {
-            //         runOnUiThread(() -> {
-            //             if (isFinishing() || isDestroyed()) {
-            //                 return;
-            //             }
-            //             btnLogin.setEnabled(true);
-            //             Toast.makeText(LoginActivity.this,
-            //                     "Không tìm thấy hoặc không kết nối được server", Toast.LENGTH_SHORT).show();
-            //         });
-            //         return;
-            //     }
-            //     if (!myControl.sendData(new ObjectWrapper(ObjectWrapper.LOGIN_USER, player))) {
-            //         runOnUiThread(() -> {
-            //             if (isFinishing() || isDestroyed()) {
-            //                 return;
-            //             }
-            //             btnLogin.setEnabled(true);
-            //             Toast.makeText(LoginActivity.this, "Chưa kết nối server", Toast.LENGTH_SHORT).show();
-            //         });
-            //     }
-            // }).start();
-
-            if (!myControl.sendData(new ObjectWrapper(ObjectWrapper.LOGIN_USER, player))) {   // bước 6
-                Toast.makeText(this, "Chưa kết nối server", Toast.LENGTH_SHORT).show();
-            }
-        } else if (v.getId() == R.id.btnRegister) {                  // hình 4.3, bước 2
+            Player player = new Player(username, password);
+            btnLogin.setEnabled(false);
+            new Thread(() -> {
+                boolean connected = myControl.openConnection();
+                if (!connected) {
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) {
+                            return;
+                        }
+                        btnLogin.setEnabled(true);
+                        Toast.makeText(this, "Không tìm thấy hoặc không kết nối được server", Toast.LENGTH_SHORT).show();
+                    });
+                    return;
+                }
+                if (!myControl.sendData(new ObjectWrapper(ObjectWrapper.LOGIN_USER, player))) {
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) {
+                            return;
+                        }
+                        btnLogin.setEnabled(true);
+                        toast("Chưa kết nối server");
+                    });
+                }
+            }).start();
+        } else if (v.getId() == R.id.btnRegister) {
             startActivity(new Intent(this, RegisterActivity.class));
         }
     }
 
     @Override
-    public void receivedDataProcessing(ObjectWrapper d) {            // bước 18
+    public void receivedDataProcessing(ObjectWrapper d) {
         if (d.getPerformative() != ObjectWrapper.REPLY_LOGIN_USER) {
             return;
         }
-        // [HƯỚNG DẪN BƯỚC 4a] Mở lại nút Đăng nhập khi nhận phản hồi (nhất là lúc sai tài khoản/mật khẩu):
-        // btnLogin.setEnabled(true);
+        btnLogin.setEnabled(true);
         if (d.getData() instanceof Player) {
-            myControl.setMyPlayer((Player) d.getData());             // bước 19
-            startActivity(new Intent(this, OnlineListActivity.class));   // bước 20
+            myControl.setMyPlayer((Player) d.getData());
+            startActivity(new Intent(this, OnlineListActivity.class));
             finish();
         } else {
-            Toast.makeText(this, "Đăng nhập thất bại", Toast.LENGTH_SHORT).show();
+            toast("Sai tên đăng nhập hoặc mật khẩu");
         }
     }
 }

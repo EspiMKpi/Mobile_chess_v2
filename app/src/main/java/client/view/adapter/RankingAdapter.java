@@ -10,13 +10,12 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import model.PlayerRanking;
 import vn.edu.ptit.mobilechess.R;
 
-/**
- * Chủ: N04. Adapter hiển thị bảng xếp hạng trong {@link client.view.RankingActivity}.
- */
+/** Chủ: N04. Adapter bảng xếp hạng toàn bộ người chơi. */
 public class RankingAdapter extends RecyclerView.Adapter<RankingAdapter.ViewHolder> {
 
     private final List<PlayerRanking> rankings = new ArrayList<>();
@@ -39,11 +38,14 @@ public class RankingAdapter extends RecyclerView.Adapter<RankingAdapter.ViewHold
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        // TODO(N04 - Hình 4.1 & Mục 1.3):
-        //  - Hiển thị "#<position+1> <username>", "Tổng điểm: <totalPoint>",
-        //    "TB điểm đối thủ: <avgOpponentPoint>",
-        //    "TB số nước thắng: <avgMovesWin < 0 ? '-' : ...>",
-        //    "TB số nước thua: <avgMovesLose < 0 ? '-' : ...>".
+        PlayerRanking r = rankings.get(position);
+        holder.txtRankName.setText("#" + (position + 1) + " " + r.getUsername());
+        holder.txtTotalPoint.setText(String.format(Locale.US, "Tổng điểm: %.1f", r.getTotalPoint()));
+        holder.txtAvgOpponentPoint.setText(String.format(Locale.US, "TB điểm đối thủ: %.1f", r.getAvgOpponentPoint()));
+        holder.txtAvgMovesWin.setText("TB số nước thắng: "
+                + (r.getAvgMovesWin() < 0 ? "-" : String.format(Locale.US, "%.1f", r.getAvgMovesWin())));
+        holder.txtAvgMovesLose.setText("TB số nước thua: "
+                + (r.getAvgMovesLose() < 0 ? "-" : String.format(Locale.US, "%.1f", r.getAvgMovesLose())));
     }
 
     @Override

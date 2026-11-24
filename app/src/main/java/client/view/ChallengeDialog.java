@@ -1,10 +1,13 @@
 package client.view;
 
 import android.app.Dialog;
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -12,23 +15,25 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
 import client.control.ClientCtr;
+import model.MatchStartInfo;
 import model.ObjectWrapper;
 import model.PlayerStat;
 import vn.edu.ptit.mobilechess.R;
 
-/**
- * Chủ: N04. Hộp thoại chờ đối thủ trả lời lời mời thách đấu (Hình 4.9, 4.10a, 4.11).
- */
+/** Chủ: N04. Hộp thoại chờ đối thủ trả lời lời mời thách đấu (Hình 4.9, 4.11, 4.12). */
 public class ChallengeDialog extends DialogFragment implements DataReceiver, View.OnClickListener {
 
     public static final String TAG = "ChallengeDialog";
     private static final String ARG_TARGET = "target";
+    private static final long INVITE_TIMEOUT_MS = 30_000L;
 
     private TextView lblStatus;
     private TextView lblCountdown;
     private Button btnCancel;
     private final ClientCtr myControl = ClientCtr.getInstance();
     private PlayerStat target;
+    private CountDownTimer countDownTimer;
+    private boolean cancelling;
 
     public static ChallengeDialog newInstance(PlayerStat target) {
         ChallengeDialog dialog = new ChallengeDialog();
@@ -52,11 +57,18 @@ public class ChallengeDialog extends DialogFragment implements DataReceiver, Vie
         btnCancel = view.findViewById(R.id.btnCancel);
         btnCancel.setOnClickListener(this);
 
-        // [HƯỚNG DẪN - Hình 4.11, bước 15-17]
-        // 1. Hiển thị lblStatus = getString(R.string.msg_challenge_waiting, target.getUsername()).
-        // 2. Đăng ký nhận 3 mã: REPLY_CHALLENGE_BUSY, REPLY_CHALLENGE_REJECT, SERVER_START_MATCH.
-        // 3. Gửi lời mời: myControl.sendData(new ObjectWrapper(ObjectWrapper.SEND_CHALLENGE, target));
-        // 4. Bật CountDownTimer 30 giây cập nhật lblCountdown ("Còn lại: XX giây") và nhớ hủy trong onDestroyView().
+        String targetName = target != null ? target.getUsername() : "";
+        lblStatus.setText(getString(R.string.msg_challenge_waiting, targetName));
+
+        myControl.register(ObjectWrapper.REPLY_CHALLENGE_BUSY, this);
+        myControl.register(ObjectWrapper.REPLY_CHALLENGE_REJECT, this);
+        myControl.register(ObjectWrapper.SERVER_START_MATCH, this);
+
+        if (target == null || !myControl.sendData(new ObjectWrapper(ObjectWrapper.SEND_CHALLENGE, target))) {
+            lblStatus.setText("Không gửi được lời mời");
+        } else {
+            startCountdown();
+        }
 
         return new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.title_challenge)
@@ -64,22 +76,73 @@ public class ChallengeDialog extends DialogFragment implements DataReceiver, Vie
                 .create();
     }
 
+    private void startCountdown() {
+        countDownTimer = new CountDownTimer(INVITE_TIMEOUT_MS, 1000L) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                if (lblCountdown != null) {
+                    long sec = (millisUntilFinished + 999L) / 1000L;
+                    lblCountdown.setText("Còn lại: " + sec + " giây");
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                if (lblCountdown != null) {
+                    lblCountdown.setText("Hết thời gian chờ");
+                }
+            }
+        }.start();
+    }
+
     @Override
     public void onClick(View v) {
-        // [HƯỚNG DẪN] Khi bấm btnCancel ("Hủy lời mời"):
-        //  - Khóa btnCancel, đổi chữ trạng thái thành "Đang hủy lời mời...",
-        //  - Gửi myControl.sendData(new ObjectWrapper(ObjectWrapper.CANCEL_CHALLENGE, null));
-        //  - Chờ REPLY_CHALLENGE_REJECT hoặc SERVER_START_MATCH (trường hợp đối thủ vừa bấm Đồng ý trước đó).
+        if (v.getId() == R.id.btnCancel) {
+            cancelling = true;
+            btnCancel.setEnabled(false);
+            lblStatus.setText("Đang hủy lời mời...");
+            myControl.sendData(new ObjectWrapper(ObjectWrapper.CANCEL_CHALLENGE, null));
+        }
     }
 
     @Override
     public void receivedDataProcessing(ObjectWrapper d) {
-        // [HƯỚNG DẪN - Hình 4.11 & 4.12]
-        // Kiểm tra if (!isAdded()) return;
-        // - REPLY_CHALLENGE_BUSY: Toast "Đối thủ đang bận hoặc không còn online", dismissAllowingStateLoss().
-        // - REPLY_CHALLENGE_REJECT: xem lý do ("REJECT" / "CANCEL" / "TIMEOUT" / "DISCONNECT"), Toast rồi dismissAllowingStateLoss().
-        // - SERVER_START_MATCH: mở MatchPlayActivity của N11 với Intent extra MatchPlayActivity.EXTRA_START_INFO
-        //   chứa (MatchStartInfo) d.getData(), rồi dismissAllowingStateLoss().
+        if (!isAdded()) {
+            return;
+        }
+        int code = d.getPerformative();
+        if (code == ObjectWrapper.REPLY_CHALLENGE_BUSY) {
+            Toast.makeText(requireContext(), "Đối thủ đang bận hoặc không còn online", Toast.LENGTH_SHORT).show();
+            dismissAllowingStateLoss();
+        } else if (code == ObjectWrapper.REPLY_CHALLENGE_REJECT) {
+            String reason = d.getData() instanceof String ? (String) d.getData() : "REJECT";
+            String msg;
+            if (cancelling || "CANCEL".equals(reason)) {
+                msg = "Đã hủy lời mời";
+            } else if ("TIMEOUT".equals(reason)) {
+                msg = "Đối thủ không trả lời sau 30 giây";
+            } else if ("DISCONNECT".equals(reason)) {
+                msg = "Đối thủ đã mất kết nối";
+            } else {
+                msg = "Đối thủ đã từ chối lời mời";
+            }
+            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+            dismissAllowingStateLoss();
+        } else if (code == ObjectWrapper.SERVER_START_MATCH && d.getData() instanceof MatchStartInfo) {
+            Intent i = new Intent(requireContext(), MatchPlayActivity.class);
+            i.putExtra(MatchPlayActivity.EXTRA_START_INFO, (MatchStartInfo) d.getData());
+            startActivity(i);
+            dismissAllowingStateLoss();
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (countDownTimer != null) {
+            countDownTimer.cancel();
+            countDownTimer = null;
+        }
+        super.onDestroyView();
     }
 
     @Override

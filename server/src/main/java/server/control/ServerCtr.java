@@ -5,47 +5,56 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.nio.charset.StandardCharsets;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
 import model.IPAddress;
 import model.ObjectWrapper;
 import model.Player;
 import model.PlayerStat;
+import server.dao.MatchDAO;
 import server.dao.PlayerDAO;
 import server.view.ServerMainFrm;
+
+/** Chủ: N04. Bộ điều khiển phía Server (TCP, UDP Discovery, quản lý phiên, ghép cặp). */
 public class ServerCtr {
 
-    private ServerMainFrm view;
-    private IPAddress myAddress;
+    public static final int DISCOVERY_PORT = 9999;
+
+    private final ServerMainFrm view;
+    private final IPAddress myAddress;
+    private final int discoveryPort;
     private ServerSocket myServer;
     private ServerListening myListening;
-    private ArrayList<ServerProcessing> myProcess = new ArrayList<>();
-
-    public static final int DISCOVERY_PORT = 9999;
     private ServerDiscovery myDiscovery;
-
-    // [HƯỚNG DẪN THÁCH ĐẤU - CẤU TRÚC MỚI]
-    // private final Object matchmakingLock = new Object();
-    // private final ArrayList<MatchSession> mySessions = new ArrayList<>();
+    private final ArrayList<ServerProcessing> myProcess = new ArrayList<>();
+    private final ArrayList<MatchSession> mySessions = new ArrayList<>();
+    private final Object matchmakingLock = new Object();
 
     public ServerCtr(ServerMainFrm v, int port) {
+        this(v, port, DISCOVERY_PORT);
+    }
+
+    /** Constructor phụ (truyền discoveryPort = 0 khi chạy unit test để tránh xung đột cổng UDP). */
+    public ServerCtr(ServerMainFrm v, int port, int discoveryPort) {
         this.view = v;
         this.myAddress = new IPAddress("0.0.0.0", port);
+        this.discoveryPort = discoveryPort;
     }
 
     public void openServer() {
         try {
             myServer = new ServerSocket(myAddress.getPort());
+            myAddress.setPort(myServer.getLocalPort());
             myListening = new ServerListening();
             myListening.start();
-            myDiscovery = new ServerDiscovery();
+            myDiscovery = new ServerDiscovery(discoveryPort);
             myDiscovery.start();
-            view.showMessage("Server đang chạy ở cổng " + myAddress.getPort());
+            log("Server đang chạy ở cổng " + myAddress.getPort());
         } catch (IOException e) {
-            view.showMessage("Không mở được server: " + e.getMessage());
+            log("Không mở được server: " + e.getMessage());
         }
     }
 
@@ -56,10 +65,9 @@ public class ServerCtr {
             }
         } catch (IOException ignored) {
         }
-        // [HƯỚNG DẪN BƯỚC 2] Đóng UDP socket khi dừng server để luồng ServerDiscovery thoát gọn:
         if (myDiscovery != null) {
-             myDiscovery.close();
-             myDiscovery = null;
+            myDiscovery.close();
+            myDiscovery = null;
         }
         ArrayList<ServerProcessing> copy;
         synchronized (myProcess) {
@@ -72,9 +80,31 @@ public class ServerCtr {
             } catch (IOException ignored) {
             }
         }
-        view.showMessage("Server đã dừng");
+        synchronized (mySessions) {
+            mySessions.clear();
+        }
+        log("Server đã dừng");
     }
 
+    public int getTcpPort() {
+        return myAddress.getPort();
+    }
+
+    public int getDiscoveryPort() {
+        return myDiscovery != null ? myDiscovery.getLocalPort() : -1;
+    }
+
+    public ArrayList<ServerProcessing> getMyProcess() {
+        synchronized (myProcess) {
+            return new ArrayList<>(myProcess);
+        }
+    }
+
+    public ArrayList<MatchSession> getMySessions() {
+        synchronized (mySessions) {
+            return new ArrayList<>(mySessions);
+        }
+    }
 
     public ServerProcessing findProcess(int playerId) {
         synchronized (myProcess) {
@@ -93,7 +123,7 @@ public class ServerCtr {
         }
     }
 
-
+    /** Đăng nhập thành công; nếu tài khoản đang mở ở máy khác thì đóng phiên cũ. */
     public synchronized void login(ServerProcessing p, Player player) {
         ServerProcessing old = findProcess(player.getId());
         if (old != null && old != p) {
@@ -103,12 +133,72 @@ public class ServerCtr {
             } catch (IOException ignored) {
             }
         }
-        p.setLoggedInPlayer(player);                 // bước 15
+        p.setLoggedInPlayer(player);
         p.setStatus(PlayerStat.IDLE);
-        broadcastOnlineList();                       // bước 16
-        view.showMessage(player.getUsername() + " đã đăng nhập");
+        broadcastOnlineList();
+        log(player.getUsername() + " đã đăng nhập");
     }
 
+    /** Kiểm tra cả 2 người chơi đều rảnh và tạo lời mời thách đấu nguyên tử. */
+    public PendingChallenge tryCreateChallenge(ServerProcessing a, ServerProcessing b) {
+        synchronized (matchmakingLock) {
+            if (a == null || b == null || a == b) {
+                return null;
+            }
+            if (a.loggedInPlayer == null || b.loggedInPlayer == null) {
+                return null;
+            }
+            if (a.getPendingChallenge() != null || b.getPendingChallenge() != null) {
+                return null;
+            }
+            if (a.getMatchSession() != null || b.getMatchSession() != null) {
+                return null;
+            }
+            if (PlayerStat.BUSY.equals(a.getStatus()) || PlayerStat.BUSY.equals(b.getStatus())) {
+                return null;
+            }
+
+            a.setStatus(PlayerStat.BUSY);
+            b.setStatus(PlayerStat.BUSY);
+            PendingChallenge challenge = new PendingChallenge(this, a, b);
+            a.setPendingChallenge(challenge);
+            b.setPendingChallenge(challenge);
+            challenge.startTimeout();
+            broadcastOnlineList();
+            return challenge;
+        }
+    }
+
+    public void registerMatchSession(MatchSession session) {
+        if (session == null) {
+            return;
+        }
+        synchronized (mySessions) {
+            mySessions.add(session);
+        }
+    }
+
+    /** N11 gọi hàm này khi kết thúc hẳn phòng đấu để trả 2 người chơi về IDLE. */
+    public void onMatchSessionEnded(MatchSession session, ServerProcessing p1, ServerProcessing p2) {
+        if (session != null) {
+            synchronized (mySessions) {
+                mySessions.remove(session);
+            }
+        }
+        if (p1 != null) {
+            if (p1.getMatchSession() == session) {
+                p1.setMatchSession(null);
+            }
+            p1.setStatus(PlayerStat.IDLE);
+        }
+        if (p2 != null) {
+            if (p2.getMatchSession() == session) {
+                p2.setMatchSession(null);
+            }
+            p2.setStatus(PlayerStat.IDLE);
+        }
+        broadcastOnlineList();
+    }
 
     public void broadcastOnlineList() {
         ArrayList<PlayerStat> list = getOnlinePlayers();
@@ -122,7 +212,6 @@ public class ServerCtr {
             }
         }
     }
-
 
     public ArrayList<PlayerStat> getOnlinePlayers() {
         ArrayList<ServerProcessing> copy;
@@ -140,7 +229,6 @@ public class ServerCtr {
         return list;
     }
 
-    /** Tạo PlayerStat mới nhất cho 1 phiên đang đăng nhập (dùng cho cả N04 và GameRoom của N11). */
     public PlayerStat getPlayerStat(ServerProcessing sp) {
         if (sp == null || sp.loggedInPlayer == null) {
             return null;
@@ -149,32 +237,13 @@ public class ServerCtr {
         return new PlayerStat(sp.loggedInPlayer, playerDAO.getTotalPoint(sp.loggedInPlayer.getId()), sp.status);
     }
 
-    /**
-     * N11 gọi hàm này khi kết thúc hẳn phòng đấu (chọn Dừng chơi hoặc mất kết nối giữa ván)
-     * để trả 2 người chơi về trạng thái IDLE và cập nhật lại danh sách online.
-     */
-    public void onMatchSessionEnded(MatchSession session, ServerProcessing p1, ServerProcessing p2) {
-        // TODO(N04): xóa session khỏi mySessions (nếu có), đặt matchSession = null và status = IDLE cho p1, p2,
-        // rồi gọi broadcastOnlineList().
-        if (p1 != null) {
-            p1.setStatus(PlayerStat.IDLE);
+    private void log(String msg) {
+        if (view != null) {
+            view.showMessage(msg);
         }
-        if (p2 != null) {
-            p2.setStatus(PlayerStat.IDLE);
-        }
-        broadcastOnlineList();
     }
 
-    // [HƯỚNG DẪN THÁCH ĐẤU - Ghép cặp nguyên tử]
-    // Thêm hàm tryCreateChallenge(ServerProcessing a, ServerProcessing b) dùng khóa matchmakingLock:
-    //  - Kiểm tra a != null && b != null && a != b && a.loggedInPlayer != null && b.loggedInPlayer != null
-    //  - Kiểm tra cả 2 đều chưa có pendingChallenge, chưa có matchSession và status == IDLE
-    //  - Đổi cả 2 sang PlayerStat.BUSY, tạo PendingChallenge, gắn vào a và b, gọi startTimeout(),
-    //    gọi broadcastOnlineList() để người khác thấy cả hai đang BẬN, rồi trả về PendingChallenge.
-
-
     public class ServerListening extends Thread {
-
         public ServerListening() {
             super("ServerListening");
         }
@@ -184,77 +253,78 @@ public class ServerCtr {
             while (!myServer.isClosed()) {
                 try {
                     Socket s = myServer.accept();
+                    s.setKeepAlive(true);
                     ServerProcessing sp = new ServerProcessing(s);
                     synchronized (myProcess) {
                         myProcess.add(sp);
                     }
                     sp.start();
-                    view.showMessage("Client kết nối: " + s.getRemoteSocketAddress());
+                    log("Client kết nối: " + s.getRemoteSocketAddress());
                 } catch (IOException e) {
-                    break;                           // myServer đã đóng
+                    break;
                 }
             }
         }
     }
 
-
     public class ServerDiscovery extends Thread {
+        private DatagramSocket socket;
 
-         private DatagramSocket socket;
+        public ServerDiscovery(int udpPort) {
+            super("ServerDiscovery");
+            try {
+                socket = new DatagramSocket(udpPort);
+                socket.setBroadcast(true);
+            } catch (IOException e) {
+                log("Không mở được UDP discovery: " + e.getMessage());
+            }
+        }
 
-         public ServerDiscovery() {
-             super("ServerDiscovery");
-             try {
-                 socket = new DatagramSocket(DISCOVERY_PORT);
-                 socket.setBroadcast(true);
-             } catch (IOException e) {
-                 view.showMessage("Không mở được UDP discovery: " + e.getMessage());
-             }
-         }
+        public int getLocalPort() {
+            return socket != null ? socket.getLocalPort() : -1;
+        }
 
-         @Override
-         public void run() {
-             if (socket == null) {
-                 return;
-             }
-             byte[] buf = new byte[256];
-             while (!socket.isClosed()) {
-                 try {
-                     DatagramPacket packet = new DatagramPacket(buf, buf.length);
-                     socket.receive(packet);
-                     String msg = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8).trim();
-                     if ("DISCOVER_SERVER".equals(msg)) {
-                         byte[] replyBytes = String.valueOf(myAddress.getPort()).getBytes(StandardCharsets.UTF_8);
-                         DatagramPacket reply = new DatagramPacket(
-                                 replyBytes, replyBytes.length, packet.getAddress(), packet.getPort());
-                         socket.send(reply);
-                     }
-                 } catch (IOException e) {
-                     if (socket.isClosed()) {
-                         break;
-                     }
-                 }
-             }
-         }
+        @Override
+        public void run() {
+            if (socket == null) {
+                return;
+            }
+            byte[] buf = new byte[256];
+            while (!socket.isClosed()) {
+                try {
+                    DatagramPacket packet = new DatagramPacket(buf, buf.length);
+                    socket.receive(packet);
+                    String msg = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8).trim();
+                    if ("DISCOVER_SERVER".equals(msg)) {
+                        byte[] replyBytes = String.valueOf(myAddress.getPort()).getBytes(StandardCharsets.UTF_8);
+                        DatagramPacket reply = new DatagramPacket(
+                                replyBytes, replyBytes.length, packet.getAddress(), packet.getPort());
+                        socket.send(reply);
+                    }
+                } catch (IOException e) {
+                    if (socket.isClosed()) {
+                        break;
+                    }
+                }
+            }
+        }
 
-         public void close() {
-             if (socket != null && !socket.isClosed()) {
-                 socket.close();
-             }
-         }
-     }
-
+        public void close() {
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+        }
+    }
 
     public class ServerProcessing extends Thread {
 
-        private Socket mySocket;
+        private final Socket mySocket;
         private ObjectOutputStream oos;
         private ObjectInputStream ois;
-        private Player loggedInPlayer;
+        private volatile Player loggedInPlayer;
         private volatile String status = PlayerStat.IDLE;
-        // [HƯỚNG DẪN CẤU TRÚC MỚI] Thêm 2 trường quản lý lời mời đang chờ (N04) và trận đang đấu (N11):
-        // private volatile PendingChallenge pendingChallenge;
-        // private volatile MatchSession matchSession;
+        private volatile PendingChallenge pendingChallenge;
+        private volatile MatchSession matchSession;
 
         public ServerProcessing(Socket s) {
             this.mySocket = s;
@@ -263,8 +333,9 @@ public class ServerCtr {
         @Override
         public void run() {
             PlayerDAO playerDAO = new PlayerDAO();
+            MatchDAO matchDAO = new MatchDAO();
             try {
-                oos = new ObjectOutputStream(mySocket.getOutputStream());   // tạo oos TRƯỚC ois
+                oos = new ObjectOutputStream(mySocket.getOutputStream());
                 oos.flush();
                 ois = new ObjectInputStream(mySocket.getInputStream());
 
@@ -273,80 +344,138 @@ public class ServerCtr {
                     if (!(o instanceof ObjectWrapper)) {
                         continue;
                     }
-                    ObjectWrapper data = (ObjectWrapper) o;
-                    switch (data.getPerformative()) {
-                        case ObjectWrapper.REGISTER_USER: {                    // hình 4.3, bước 10-16
-                            Player player = (Player) data.getData();
-                            boolean ok = playerDAO.registerPlayer(player);
-                            sendData(new ObjectWrapper(ObjectWrapper.REPLY_REGISTER_USER, ok ? "ok" : "false"));
-                            break;
-                        }
-                        case ObjectWrapper.LOGIN_USER: {                       // hình 4.4, bước 7-17
-                            Player player = (Player) data.getData();
-                            if (playerDAO.checkLogin(player)) {
-                                login(this, player);
-                                sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, player));
-                            } else {
-                                sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, "false"));
-                            }
-                            break;
-                        }
-                        // [HƯỚNG DẪN CÁC CHỨC NĂNG CÒN LẠI CỦA N04 + CHUYỂN TIẾP SANG N11]
-                        // 1) EDIT_PLAYER:
-                        //    Player edited = (Player) data.getData();
-                        //    boolean ok = loggedInPlayer != null && playerDAO.editPlayer(loggedInPlayer.getId(), edited);
-                        //    if (ok) { cập nhật name, email, tel của loggedInPlayer; }
-                        //    sendData(new ObjectWrapper(ObjectWrapper.REPLY_EDIT_PLAYER, ok ? "ok" : "false"));
-                        //
-                        // 2) CHANGE_PASSWORD:
-                        //    String[] arr = (String[]) data.getData(); // {oldPass, newPass}
-                        //    boolean ok = loggedInPlayer != null && playerDAO.changePassword(loggedInPlayer.getId(), arr[0], arr[1]);
-                        //    sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHANGE_PASSWORD, ok ? "ok" : "false"));
-                        //
-                        // 3) GET_PLAYER_HISTORY:
-                        //    MatchDAO matchDAO = new MatchDAO();
-                        //    sendData(new ObjectWrapper(ObjectWrapper.REPLY_PLAYER_HISTORY,
-                        //            matchDAO.getMatchesByPlayer(loggedInPlayer.getId())));
-                        //
-                        // 4) GET_RANKING:
-                        //    sendData(new ObjectWrapper(ObjectWrapper.REPLY_RANKING, playerDAO.getRanking()));
-                        //
-                        // 5) GET_ONLINE_LIST:
-                        //    sendData(new ObjectWrapper(ObjectWrapper.REPLY_ONLINE_LIST, getOnlinePlayers()));
-                        //
-                        // 6) SEND_CHALLENGE:
-                        //    PlayerStat target = (PlayerStat) data.getData();
-                        //    ServerProcessing b = findProcess(target.getId());
-                        //    PendingChallenge ch = tryCreateChallenge(this, b);
-                        //    if (ch == null) { sendData(new ObjectWrapper(REPLY_CHALLENGE_BUSY, target)); }
-                        //    else { b.sendData(new ObjectWrapper(SERVER_INFORM_CHALLENGE, getPlayerStat(this))); }
-                        //
-                        // 7) CANCEL_CHALLENGE:
-                        //    if (pendingChallenge != null) pendingChallenge.onCancel(this);
-                        //
-                        // 8) REPLY_CHALLENGE_DECISION:
-                        //    if (pendingChallenge != null) pendingChallenge.onDecision(this, Boolean.TRUE.equals(data.getData()));
-                        //
-                        // 9) CHUYỂN TIẾP GÓI TIN TRONG TRẬN SANG N11 (mã 20..24, 30..39):
-                        //    if (matchSession != null) matchSession.onPacket(this, data);
-                        default:
-                            break;
+                    try {
+                        handleMessage((ObjectWrapper) o, playerDAO, matchDAO);
+                    } catch (RuntimeException ex) {
+                        log("Lỗi xử lý gói tin: " + ex.getMessage());
                     }
                 }
             } catch (Exception e) {
-                // Client đóng kết nối hoặc mạng lỗi
+                // Client đóng kết nối hoặc mất mạng
             } finally {
-                // [HƯỚNG DẪN MẤT KẾT NỐI]
-                // Nếu đang chờ lời mời -> if (pendingChallenge != null) pendingChallenge.onDisconnect(this);
-                // Nếu đang trong trận -> if (matchSession != null) matchSession.onDisconnect(this);
+                if (pendingChallenge != null) {
+                    pendingChallenge.onDisconnect(this);
+                }
+                if (matchSession != null) {
+                    matchSession.onDisconnect(this);
+                }
                 removeProcess(this);
                 try {
                     mySocket.close();
                 } catch (IOException ignored) {
                 }
                 if (loggedInPlayer != null) {
-                    view.showMessage(loggedInPlayer.getUsername() + " đã ngắt kết nối");
+                    log(loggedInPlayer.getUsername() + " đã ngắt kết nối");
                     broadcastOnlineList();
+                }
+            }
+        }
+
+        private void handleMessage(ObjectWrapper data, PlayerDAO playerDAO, MatchDAO matchDAO) {
+            int code = data.getPerformative();
+            switch (code) {
+                case ObjectWrapper.REGISTER_USER: {
+                    if (!(data.getData() instanceof Player)) {
+                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_REGISTER_USER, "false"));
+                        break;
+                    }
+                    boolean ok = playerDAO.registerPlayer((Player) data.getData());
+                    sendData(new ObjectWrapper(ObjectWrapper.REPLY_REGISTER_USER, ok ? "ok" : "false"));
+                    break;
+                }
+                case ObjectWrapper.LOGIN_USER: {
+                    if (!(data.getData() instanceof Player)) {
+                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, "false"));
+                        break;
+                    }
+                    Player p = (Player) data.getData();
+                    if (playerDAO.checkLogin(p)) {
+                        login(this, p);
+                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, p));
+                    } else {
+                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_LOGIN_USER, "false"));
+                    }
+                    break;
+                }
+                case ObjectWrapper.EDIT_PLAYER: {
+                    if (loggedInPlayer == null || !(data.getData() instanceof Player)) {
+                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_EDIT_PLAYER, "false"));
+                        break;
+                    }
+                    Player edited = (Player) data.getData();
+                    boolean ok = playerDAO.editPlayer(loggedInPlayer.getId(), edited);
+                    if (ok) {
+                        loggedInPlayer.setName(edited.getName());
+                        loggedInPlayer.setEmail(edited.getEmail());
+                        loggedInPlayer.setTel(edited.getTel());
+                        broadcastOnlineList();
+                    }
+                    sendData(new ObjectWrapper(ObjectWrapper.REPLY_EDIT_PLAYER, ok ? "ok" : "false"));
+                    break;
+                }
+                case ObjectWrapper.CHANGE_PASSWORD: {
+                    if (loggedInPlayer == null || !(data.getData() instanceof String[])) {
+                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHANGE_PASSWORD, "false"));
+                        break;
+                    }
+                    String[] arr = (String[]) data.getData();
+                    boolean ok = arr.length == 2
+                            && playerDAO.changePassword(loggedInPlayer.getId(), arr[0], arr[1]);
+                    sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHANGE_PASSWORD, ok ? "ok" : "false"));
+                    break;
+                }
+                case ObjectWrapper.GET_PLAYER_HISTORY: {
+                    if (loggedInPlayer == null) {
+                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_PLAYER_HISTORY, new ArrayList<>()));
+                        break;
+                    }
+                    sendData(new ObjectWrapper(ObjectWrapper.REPLY_PLAYER_HISTORY,
+                            matchDAO.getMatchesByPlayer(loggedInPlayer.getId())));
+                    break;
+                }
+                case ObjectWrapper.GET_RANKING: {
+                    sendData(new ObjectWrapper(ObjectWrapper.REPLY_RANKING, playerDAO.getRanking()));
+                    break;
+                }
+                case ObjectWrapper.GET_ONLINE_LIST: {
+                    sendData(new ObjectWrapper(ObjectWrapper.REPLY_ONLINE_LIST, getOnlinePlayers()));
+                    break;
+                }
+                case ObjectWrapper.SEND_CHALLENGE: {
+                    if (loggedInPlayer == null || !(data.getData() instanceof PlayerStat)) {
+                        break;
+                    }
+                    PlayerStat target = (PlayerStat) data.getData();
+                    ServerProcessing b = findProcess(target.getId());
+                    PendingChallenge challenge = tryCreateChallenge(this, b);
+                    if (challenge == null) {
+                        sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_BUSY, target));
+                    } else {
+                        b.sendData(new ObjectWrapper(ObjectWrapper.SERVER_INFORM_CHALLENGE, getPlayerStat(this)));
+                    }
+                    break;
+                }
+                case ObjectWrapper.CANCEL_CHALLENGE: {
+                    if (pendingChallenge != null) {
+                        pendingChallenge.onCancel(this);
+                    }
+                    break;
+                }
+                case ObjectWrapper.REPLY_CHALLENGE_DECISION: {
+                    if (pendingChallenge != null && data.getData() instanceof Boolean) {
+                        pendingChallenge.onDecision(this, (Boolean) data.getData());
+                    }
+                    break;
+                }
+                default: {
+                    // Chuyển tiếp mọi gói tin trong trận (20..24, 30..39) sang MatchSession của N11
+                    if ((code >= 20 && code <= 24) || (code >= 30 && code <= 39)) {
+                        MatchSession session = matchSession;
+                        if (session != null) {
+                            session.onPacket(this, data);
+                        }
+                    }
+                    break;
                 }
             }
         }
@@ -360,7 +489,6 @@ public class ServerCtr {
                 oos.flush();
                 oos.reset();
             } catch (IOException ignored) {
-
             }
         }
 
@@ -368,10 +496,9 @@ public class ServerCtr {
         public void setLoggedInPlayer(Player p) { this.loggedInPlayer = p; }
         public String getStatus() { return status; }
         public void setStatus(String s) { this.status = s; }
-        // [HƯỚNG DẪN CẤU TRÚC MỚI] Khi mở pendingChallenge & matchSession thì thêm getter/setter tương ứng:
-        // public PendingChallenge getPendingChallenge() { return pendingChallenge; }
-        // public void setPendingChallenge(PendingChallenge c) { this.pendingChallenge = c; }
-        // public MatchSession getMatchSession() { return matchSession; }
-        // public void setMatchSession(MatchSession m) { this.matchSession = m; }
+        public PendingChallenge getPendingChallenge() { return pendingChallenge; }
+        public void setPendingChallenge(PendingChallenge c) { this.pendingChallenge = c; }
+        public MatchSession getMatchSession() { return matchSession; }
+        public void setMatchSession(MatchSession m) { this.matchSession = m; }
     }
 }

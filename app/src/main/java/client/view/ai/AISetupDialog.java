@@ -1,20 +1,41 @@
 package client.view.ai;
 
+import android.app.Dialog;
+import android.content.Intent;
+import android.os.Bundle;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.DialogFragment;
 
+import vn.edu.ptit.mobilechess.R;
+
 /**
- * Chủ: N11. Hộp thoại thiết lập ván với máy (Giao diện 3.1 báo cáo N11).
- * OnlineListActivity (N04) chỉ gọi đúng một dòng: AISetupDialog.open(this);
+ * [PHẦN N11] Hộp thoại thiết lập ván với máy.
+ * OnlineListActivity (N04) chỉ gọi: AISetupDialog.open(this);
  */
 public class AISetupDialog extends DialogFragment {
 
     public static final String TAG = "AISetupDialog";
 
     public static void open(AppCompatActivity host) {
-        new AISetupDialog().show(host.getSupportFragmentManager(), TAG);
+        if (!host.getSupportFragmentManager().isStateSaved()
+                && host.getSupportFragmentManager().findFragmentByTag(TAG) == null) {
+            new AISetupDialog().show(host.getSupportFragmentManager(), TAG);
+        }
     }
 
-    // TODO(N11): onCreateDialog(): chọn Người/Máy cho Trắng/Đen, độ sâu 1-6 (mặc định 3)
-    //            -> startActivity(new Intent(requireContext(), AIMatchActivity.class) + extras)
+    @NonNull
+    @Override
+    public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
+        return new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.n11_title_ai_match)
+                .setMessage(R.string.n11_ai_todo)
+                .setPositiveButton("Mở màn hình AI", (d, w) ->
+                        startActivity(new Intent(requireContext(), AIMatchActivity.class)))
+                .setNegativeButton(R.string.btn_cancel, null)
+                .create();
+    }
 }

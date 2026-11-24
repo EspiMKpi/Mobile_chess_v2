@@ -1,10 +1,14 @@
 package client.control;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.FragmentManager;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -17,34 +21,46 @@ import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-// [HƯỚNG DẪN BƯỚC 3] Bỏ import ClientMainActivity và đổi thành LoginActivity:
-// import client.view.LoginActivity;
-import client.view.ClientMainActivity;
 import client.view.DataReceiver;
+import client.view.InviteDialog;
+import client.view.LoginActivity;
 import model.IPAddress;
 import model.ObjectWrapper;
 import model.Player;
+import model.PlayerStat;
 
-/** Chủ: N04. Bộ điều khiển phía Client - dùng chung cho mọi Activity qua getInstance() (hình 4.2a). */
+/**
+ * Chủ: N04. Bộ điều khiển phía Client Android (singleton sống suốt vòng đời ứng dụng).
+ * Tự tìm server qua UDP broadcast, quản lý Socket TCP, hàng đợi gửi tuần tự và điều phối gói tin.
+ */
 public class ClientCtr {
+
+    public static final int DISCOVERY_PORT = 9999;
 
     private static ClientCtr instance;
 
-    // [HƯỚNG DẪN BƯỚC 3] Cổng UDP khớp với ServerCtr.DISCOVERY_PORT:
-    public static final int DISCOVERY_PORT = 9999;
-
     private IPAddress serverAddress;
-    private Socket mySocket;
-    private ObjectOutputStream oos;
-    private ObjectInputStream ois;
+    private volatile Socket mySocket;
+    private volatile ObjectOutputStream oos;
+    private volatile ObjectInputStream ois;
     private ClientListening myListening;
-    private List<ObjectWrapper> myFunction = new CopyOnWriteArrayList<>();
+    private volatile boolean closing;
+
+    private final List<ObjectWrapper> myFunction = new CopyOnWriteArrayList<>();
+    private final List<ObjectWrapper> pendingMatchMessages = new ArrayList<>();
+    private final ExecutorService sendExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
     private Player myPlayer;
     private Activity currentActivity;
+    private Context appContext;
 
     private ClientCtr() {
     }
@@ -60,10 +76,11 @@ public class ClientCtr {
         this.serverAddress = a;
     }
 
-    public synchronized boolean isConnected(){
+    public synchronized boolean isConnected() {
         return mySocket != null && !mySocket.isClosed() && mySocket.isConnected();
     }
 
+    /** Tìm server trong mạng Wi-Fi (UDP broadcast) và máy ảo AVD (10.0.2.2). */
     private IPAddress discoverServer() {
         try (DatagramSocket socket = new DatagramSocket()) {
             socket.setBroadcast(true);
@@ -111,136 +128,69 @@ public class ClientCtr {
         }
     }
 
-    // [HƯỚNG DẪN BƯỚC 3 - Kiểm tra kết nối & Tự tìm server (Hình 4.2a, 4.3, 4.4)]
-    // 1) Thêm hàm isConnected() để tránh mở lại socket khi đã kết nối sẵn (vd: từ RegisterActivity quay về LoginActivity):
-    //
-    // public synchronized boolean isConnected() {
-    //     return mySocket != null && !mySocket.isClosed() && mySocket.isConnected();
-    // }
-    //
-    // 2) Thêm hàm discoverServer() (Hình 4.2a) gửi gói UDP "DISCOVER_SERVER" để nhận cổng TCP từ ServerDiscovery:
-    //    - Gửi broadcast LAN (255.255.255.255 + broadcast của từng NetworkInterface) cho điện thoại thật cùng Wi-Fi.
-    //    - Gửi thêm tới 10.0.2.2 để máy ảo Android (AVD) cũng tìm được server chạy trên máy thật.
-    //
-    // private IPAddress discoverServer() {
-    //     try (DatagramSocket socket = new DatagramSocket()) {
-    //         socket.setBroadcast(true);
-    //         socket.setSoTimeout(2500);
-    //         byte[] sendData = "DISCOVER_SERVER".getBytes(StandardCharsets.UTF_8);
-    //
-    //         try {
-    //             socket.send(new DatagramPacket(
-    //                     sendData, sendData.length, InetAddress.getByName("255.255.255.255"), DISCOVERY_PORT));
-    //         } catch (IOException ignored) {
-    //         }
-    //         try {
-    //             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-    //             while (interfaces.hasMoreElements()) {
-    //                 NetworkInterface ni = interfaces.nextElement();
-    //                 if (ni.isLoopback() || !ni.isUp()) {
-    //                     continue;
-    //                 }
-    //                 for (InterfaceAddress ia : ni.getInterfaceAddresses()) {
-    //                     InetAddress broadcast = ia.getBroadcast();
-    //                     if (broadcast != null) {
-    //                         try {
-    //                             socket.send(new DatagramPacket(sendData, sendData.length, broadcast, DISCOVERY_PORT));
-    //                         } catch (IOException ignored) {
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         } catch (Exception ignored) {
-    //         }
-    //         try {
-    //             socket.send(new DatagramPacket(
-    //                     sendData, sendData.length, InetAddress.getByName("10.0.2.2"), DISCOVERY_PORT));
-    //         } catch (IOException ignored) {
-    //         }
-    //
-    //         byte[] recvBuf = new byte[256];
-    //         DatagramPacket reply = new DatagramPacket(recvBuf, recvBuf.length);
-    //         socket.receive(reply);
-    //         String portStr = new String(reply.getData(), 0, reply.getLength(), StandardCharsets.UTF_8).trim();
-    //         int tcpPort = Integer.parseInt(portStr);
-    //         return new IPAddress(reply.getAddress().getHostAddress(), tcpPort);
-    //     } catch (Exception e) {
-    //         return null;
-    //     }
-    // }
-    //
-    // 3) Sửa openConnection() thành synchronized: gọi isConnected() trước, sau đó gọi discoverServer(),
-    //    và LƯU Ý khi kết nối lỗi KHÔNG gọi closeConnection() vì closeConnection() xóa mất myFunction.clear()
-    //    (sẽ làm LoginActivity/RegisterActivity mất đăng ký nhận REPLY_LOGIN_USER / REPLY_REGISTER_USER!):
-    //
-    // public synchronized boolean openConnection() {
-    //     if (isConnected()) {
-    //         return true;
-    //     }
-    //     IPAddress found = discoverServer();
-    //     if (found == null) {
-    //         return false;
-    //     }
-    //     this.serverAddress = found;
-    //     Socket s = null;
-    //     try {
-    //         s = new Socket();
-    //         s.connect(new InetSocketAddress(serverAddress.getHost(), serverAddress.getPort()), 5000);
-    //         oos = new ObjectOutputStream(s.getOutputStream());
-    //         oos.flush();
-    //         ois = new ObjectInputStream(s.getInputStream());
-    //         mySocket = s;
-    //         myListening = new ClientListening();
-    //         myListening.start();
-    //         return true;
-    //     } catch (IOException e) {
-    //         resetSocketOnly(s);
-    //         return false;
-    //     }
-    // }
-    //
-    // private void resetSocketOnly(Socket failedSocket) {
-    //     Socket s = mySocket != null ? mySocket : failedSocket;
-    //     mySocket = null;
-    //     oos = null;
-    //     ois = null;
-    //     myListening = null;
-    //     myPlayer = null;
-    //     if (s != null) {
-    //         try {
-    //             s.close();
-    //         } catch (IOException ignored) {
-    //         }
-    //     }
-    // }
-
-    /** Kết nối tới server. Có truy cập mạng nên PHẢI gọi trên luồng nền. */
-    public boolean openConnection() {
+    /** Kết nối tới server (tự tìm qua UDP nếu chưa kết nối). PHẢI gọi trên luồng nền. */
+    public synchronized boolean openConnection() {
+        if (isConnected()) {
+            return true;
+        }
+        IPAddress found = discoverServer();
+        if (found == null) {
+            return false;
+        }
+        this.serverAddress = found;
+        closing = false;
+        Socket s = null;
         try {
-            Socket s = new Socket();
+            s = new Socket();
             s.connect(new InetSocketAddress(serverAddress.getHost(), serverAddress.getPort()), 5000);
-            oos = new ObjectOutputStream(s.getOutputStream());    // tạo oos TRƯỚC ois
-            oos.flush();
-            ois = new ObjectInputStream(s.getInputStream());
+            s.setKeepAlive(true);
+            ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
+            out.flush();
+            ObjectInputStream in = new ObjectInputStream(s.getInputStream());
+            oos = out;
+            ois = in;
             mySocket = s;
-            myListening = new ClientListening();
+            myListening = new ClientListening(s, in);
             myListening.start();
             return true;
         } catch (IOException e) {
-            closeConnection();
+            resetSocketOnly(s);
             return false;
         }
     }
 
-    /** Ngắt kết nối chủ động (đăng xuất / kết nối lại). */
-    public boolean closeConnection() {
+    /** Đóng socket khi lỗi hoặc khi đang ở LoginActivity (KHÔNG xóa myFunction). */
+    private void resetSocketOnly(Socket failedSocket) {
+        Socket s = mySocket != null ? mySocket : failedSocket;
+        mySocket = null;
+        oos = null;
+        ois = null;
+        myListening = null;
+        myPlayer = null;
+        synchronized (pendingMatchMessages) {
+            pendingMatchMessages.clear();
+        }
+        if (s != null) {
+            try {
+                s.close();
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
+    /** Ngắt kết nối chủ động (đăng xuất). */
+    public synchronized boolean closeConnection() {
+        closing = true;
         Socket s = mySocket;
-        mySocket = null;          // đánh dấu: ClientListening biết đây là ngắt chủ động
+        mySocket = null;
         oos = null;
         ois = null;
         myListening = null;
         myPlayer = null;
         myFunction.clear();
+        synchronized (pendingMatchMessages) {
+            pendingMatchMessages.clear();
+        }
         if (s != null) {
             try {
                 s.close();
@@ -251,32 +201,34 @@ public class ClientCtr {
         return true;
     }
 
-    /** Gửi gói tin lên server. Việc ghi socket chạy ở luồng nền vì Android cấm mạng trên luồng giao diện. */
+    /** Gửi gói tin lên server trên 1 luồng gửi tuần tự (gọi được từ main thread). */
     public boolean sendData(Object o) {
         final ObjectOutputStream out = oos;
-        if (mySocket == null || out == null) {
+        if (!isConnected() || out == null) {
             return false;
         }
-        new Thread(() -> {
+        sendExecutor.execute(() -> {
             synchronized (out) {
                 try {
                     out.writeObject(o);
                     out.flush();
                     out.reset();
                 } catch (IOException ignored) {
-                    // mất kết nối: ClientListening sẽ xử lý
                 }
             }
-        }).start();
+        });
         return true;
     }
 
-    /** Đăng ký màn hình r nhận gói tin có mã code. */
     public void register(int code, DataReceiver r) {
+        for (ObjectWrapper w : myFunction) {
+            if (w.getPerformative() == code && w.getData() == r) {
+                return;
+            }
+        }
         myFunction.add(new ObjectWrapper(code, r));
     }
 
-    /** Gỡ mọi đăng ký của màn hình r. */
     public void unregister(DataReceiver r) {
         for (ObjectWrapper w : myFunction) {
             if (w.getData() == r) {
@@ -285,92 +237,130 @@ public class ClientCtr {
         }
     }
 
-    public void setMyPlayer(Player p) { this.myPlayer = p; }
-    public void setCurrentActivity(Activity a) { this.currentActivity = a; }
+    public List<ObjectWrapper> getActiveFunction() {
+        return myFunction;
+    }
 
-    // [HƯỚNG DẪN CÁC CHỨC NĂNG SAU]
-    // 1) Mở thêm các getter cho EditPlayerActivity, OnlineListActivity, N11:
-    // public Player getMyPlayer() { return myPlayer; }
-    // public Activity getCurrentActivity() { return currentActivity; }
-    // public List<ObjectWrapper> getActiveFunction() { return myFunction; }
-    //
-    // 2) Bộ đệm gói tin trận đấu đến sớm (giữa lúc nhận SERVER_START_MATCH và khi MatchPlayActivity chạy onCreate):
-    // private final List<ObjectWrapper> pendingMatchMessages = new java.util.ArrayList<>();
-    // public void flushPendingMatchMessages(DataReceiver r) {
-    //     List<ObjectWrapper> copy;
-    //     synchronized (pendingMatchMessages) {
-    //         copy = new java.util.ArrayList<>(pendingMatchMessages);
-    //         pendingMatchMessages.clear();
-    //     }
-    //     for (ObjectWrapper d : copy) r.receivedDataProcessing(d);
-    // }
+    public Player getMyPlayer() {
+        return myPlayer;
+    }
 
-    /** Luồng nền đọc gói tin từ server, chuyển sang luồng giao diện rồi gọi màn hình đã đăng ký. */
+    public void setMyPlayer(Player p) {
+        this.myPlayer = p;
+    }
+
+    public Activity getCurrentActivity() {
+        return currentActivity;
+    }
+
+    public void setCurrentActivity(Activity a) {
+        this.currentActivity = a;
+        if (a != null && appContext == null) {
+            appContext = a.getApplicationContext();
+        }
+    }
+
+    /** N11 gọi cuối MatchPlayActivity.onCreate để nhận lại gói tin trận đấu đến sớm. */
+    public void flushPendingMatchMessages(DataReceiver r) {
+        if (r == null) {
+            return;
+        }
+        List<ObjectWrapper> copy;
+        synchronized (pendingMatchMessages) {
+            copy = new ArrayList<>(pendingMatchMessages);
+            pendingMatchMessages.clear();
+        }
+        for (ObjectWrapper d : copy) {
+            r.receivedDataProcessing(d);
+        }
+    }
+
+    private static boolean isMatchMessage(int code) {
+        return code == ObjectWrapper.SERVER_END_GAME
+                || code == ObjectWrapper.SERVER_RESTART_MATCH_SWAP_COLOR
+                || code == ObjectWrapper.SERVER_END_SESSION_MATCH
+                || code == ObjectWrapper.REPLY_MOVE_ILLEGAL
+                || code == ObjectWrapper.SERVER_INFORM_MOVE;
+    }
+
+    private void handleGlobalInvite(PlayerStat inviter) {
+        mainHandler.post(() -> {
+            Activity a = currentActivity;
+            if (a instanceof AppCompatActivity && !a.isFinishing() && !a.isDestroyed()) {
+                FragmentManager fm = ((AppCompatActivity) a).getSupportFragmentManager();
+                if (!fm.isStateSaved() && fm.findFragmentByTag(InviteDialog.TAG) == null) {
+                    InviteDialog.newInstance(inviter).show(fm, InviteDialog.TAG);
+                    return;
+                }
+            }
+            sendData(new ObjectWrapper(ObjectWrapper.REPLY_CHALLENGE_DECISION, false));
+        });
+    }
+
     private class ClientListening extends Thread {
+        private final Socket socket;
+        private final ObjectInputStream in;
 
-        public ClientListening() {
+        ClientListening(Socket socket, ObjectInputStream in) {
             super("ClientListening");
+            this.socket = socket;
+            this.in = in;
         }
 
         @Override
         public void run() {
-            Socket s = mySocket;
-            ObjectInputStream in = ois;
-            Handler ui = new Handler(Looper.getMainLooper());
             try {
-                while (true) {
+                while (!closing) {
                     Object o = in.readObject();
                     if (!(o instanceof ObjectWrapper)) {
                         continue;
                     }
                     ObjectWrapper data = (ObjectWrapper) o;
-                    // [HƯỚNG DẪN BƯỚC THÁCH ĐẤU TOÀN CỤC - Hình 4.11, bước 25]
-                    // Khi nhận SERVER_INFORM_CHALLENGE ở bất kỳ màn hình nào (kể cả lúc đang chơi với máy):
-                    //  - Lấy Activity đang hiển thị: Activity a = currentActivity;
-                    //  - Nếu a là AppCompatActivity && !a.getSupportFragmentManager().isStateSaved()
-                    //    và chưa có InviteDialog đang mở -> ui.post(() -> InviteDialog.newInstance((PlayerStat) data.getData()).show(...));
-                    //  - Ngược lại (app đang ở nền) -> tự gửi sendData(new ObjectWrapper(REPLY_CHALLENGE_DECISION, false));
-                    //
-                    // [HƯỚNG DẪN ĐỆM GÓI TRẬN ĐẤU]
-                    //  - Nếu mã == SERVER_START_MATCH -> xóa pendingMatchMessages trước khi phát cho receiver.
-                    //  - Nếu không có receiver nào nhận mã 21..24, 31..32 -> lưu vào pendingMatchMessages.
+                    int code = data.getPerformative();
+
+                    if (code == ObjectWrapper.SERVER_START_MATCH) {
+                        synchronized (pendingMatchMessages) {
+                            pendingMatchMessages.clear();
+                        }
+                    }
+
+                    if (code == ObjectWrapper.SERVER_INFORM_CHALLENGE && data.getData() instanceof PlayerStat) {
+                        handleGlobalInvite((PlayerStat) data.getData());
+                        continue;
+                    }
+
+                    boolean dispatched = false;
                     for (ObjectWrapper fto : myFunction) {
-                        if (fto.getPerformative() == data.getPerformative()) {
+                        if (fto.getPerformative() == code) {
                             DataReceiver r = (DataReceiver) fto.getData();
-                            ui.post(() -> r.receivedDataProcessing(data));
+                            mainHandler.post(() -> r.receivedDataProcessing(data));
+                            dispatched = true;
+                        }
+                    }
+
+                    if (!dispatched && isMatchMessage(code)) {
+                        synchronized (pendingMatchMessages) {
+                            pendingMatchMessages.add(data);
                         }
                     }
                 }
             } catch (Exception e) {
-                if (mySocket == s) {
-                    // [HƯỚNG DẪN BƯỚC 3] Đổi ClientMainActivity.class -> LoginActivity.class (báo cáo mục 1.3).
-                    // Nếu người dùng đang ở sẵn LoginActivity thì chỉ dọn socket (giữ myFunction) và Toast thông báo:
-                    //
-                    // Activity a = currentActivity;
-                    // if (a instanceof LoginActivity) {
-                    //     resetSocketOnly(s);
-                    //     ui.post(() -> Toast.makeText(a, "Mất kết nối server", Toast.LENGTH_LONG).show());
-                    //     return;
-                    // }
-                    // closeConnection();
-                    // if (a != null) {
-                    //     ui.post(() -> {
-                    //         Toast.makeText(a, "Mất kết nối server", Toast.LENGTH_LONG).show();
-                    //         Intent i = new Intent(a, LoginActivity.class);
-                    //         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    //         a.startActivity(i);
-                    //     });
-                    // }
-
-                    // Mất kết nối ngoài ý muốn (server tắt / tài khoản đăng nhập ở máy khác) -> về màn hình kết nối
+                if (closing || socket != mySocket) {
+                    return;
+                }
+                Activity a = currentActivity;
+                if (a instanceof LoginActivity) {
+                    resetSocketOnly(socket);
+                    mainHandler.post(() -> Toast.makeText(a, "Mất kết nối server", Toast.LENGTH_LONG).show());
+                } else {
                     closeConnection();
-                    Activity a = currentActivity;
-                    if (a != null) {
-                        ui.post(() -> {
-                            Toast.makeText(a, "Mất kết nối server", Toast.LENGTH_LONG).show();
-                            Intent i = new Intent(a, ClientMainActivity.class);
+                    Context ctx = a != null ? a : appContext;
+                    if (ctx != null) {
+                        mainHandler.post(() -> {
+                            Toast.makeText(ctx, "Mất kết nối server", Toast.LENGTH_LONG).show();
+                            Intent i = new Intent(ctx, LoginActivity.class);
                             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                            a.startActivity(i);
+                            ctx.startActivity(i);
                         });
                     }
                 }

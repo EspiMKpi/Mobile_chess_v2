@@ -1,5 +1,6 @@
 package client.view.adapter;
 
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,32 +11,35 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import model.PlayerStat;
 import vn.edu.ptit.mobilechess.R;
 
-/**
- * Chủ: N04. Adapter hiển thị danh sách người chơi trực tuyến trong {@link client.view.OnlineListActivity}.
- */
+/** Chủ: N04. Adapter danh sách người chơi trực tuyến. */
 public class OnlinePlayerAdapter extends RecyclerView.Adapter<OnlinePlayerAdapter.ViewHolder> {
 
     private final List<PlayerStat> items = new ArrayList<>();
     private int selectedPlayerId = -1;
 
-    /**
-     * TODO(N04): Cập nhật danh sách người chơi online, giữ nguyên dòng đang chọn theo selectedPlayerId
-     * (nếu người đó không còn trong danh sách hoặc không còn rảnh thì đặt lại selectedPlayerId = -1),
-     * rồi gọi notifyDataSetChanged().
-     */
     public void updateList(List<PlayerStat> newList) {
         items.clear();
         if (newList != null) {
             items.addAll(newList);
         }
+        boolean stillPresentAndIdle = false;
+        for (PlayerStat p : items) {
+            if (p.getId() == selectedPlayerId && PlayerStat.IDLE.equals(p.getStatus())) {
+                stillPresentAndIdle = true;
+                break;
+            }
+        }
+        if (!stillPresentAndIdle) {
+            selectedPlayerId = -1;
+        }
         notifyDataSetChanged();
     }
 
-    /** TODO(N04): Trả về đối tượng PlayerStat đang được chọn trong danh sách (hoặc null). */
     public PlayerStat getSelectedPlayer() {
         for (PlayerStat p : items) {
             if (p.getId() == selectedPlayerId) {
@@ -55,8 +59,23 @@ public class OnlinePlayerAdapter extends RecyclerView.Adapter<OnlinePlayerAdapte
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        // TODO(N04): Đổ dữ liệu STT, name, username, totalPoint, trạng thái (RẢNH / ĐANG BẬN),
-        // tô nền phân biệt dòng đang chọn và xử lý click chọn dòng -> notifyDataSetChanged().
+        PlayerStat p = items.get(position);
+        holder.txtIndex.setText(String.valueOf(position + 1));
+        holder.txtName.setText(p.getName() != null && !p.getName().isEmpty() ? p.getName() : p.getUsername());
+        holder.txtUsername.setText("@" + p.getUsername());
+        holder.txtPoints.setText(String.format(Locale.US, "%.1f đ", p.getTotalPoint()));
+
+        boolean idle = PlayerStat.IDLE.equals(p.getStatus());
+        holder.txtStatus.setText(idle ? "RẢNH" : "ĐANG BẬN");
+        holder.txtStatus.setTextColor(idle ? Color.parseColor("#2E7D32") : Color.parseColor("#C62828"));
+
+        boolean selected = (p.getId() == selectedPlayerId);
+        holder.itemView.setBackgroundColor(selected ? Color.parseColor("#E3F2FD") : Color.TRANSPARENT);
+
+        holder.itemView.setOnClickListener(v -> {
+            selectedPlayerId = selected ? -1 : p.getId();
+            notifyDataSetChanged();
+        });
     }
 
     @Override
