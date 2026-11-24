@@ -1,89 +1,45 @@
 package client.view;
 
 import android.os.Bundle;
-import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.TextView;
 
-import androidx.activity.OnBackPressedCallback;
-
+import model.MatchStartInfo;
 import model.ObjectWrapper;
-import model.PlayerStat;
 import vn.edu.ptit.mobilechess.R;
 
 /**
- * Chủ: N04. Khung phòng đấu (hình 4.3) [LỆCH BC: bàn cờ tách sang ChessBoardView của N11].
- * Trên: thông tin đối thủ · giữa: ChessBoardView · dưới: màu quân của mình + [Thoát ván].
- * Nhận SERVER_END_GAME, SERVER_RESTART_MATCH_SWAP_COLOR, SERVER_END_SESSION_MATCH
- * và chuyển tiếp SERVER_INFORM_MOVE, REPLY_MOVE_ILLEGAL cho boardView.
- * Extras: EXTRA_MY_COLOR ("WHITE" | "BLACK"), EXTRA_OPPONENT (PlayerStat).
+ * [PHẦN N11] Màn hình phòng thi đấu đối kháng.
+ *
+ * N04 mở Activity này khi nhận SERVER_START_MATCH và truyền {@link MatchStartInfo}
+ * qua Intent extra {@link #EXTRA_START_INFO}.
+ * Từ đây trở đi (vẽ bàn cờ, đồng hồ 30s, gửi SEND_MOVE, nhận SERVER_INFORM_MOVE,
+ * xin thua QUIT_GAME, dialog kết thúc & chơi tiếp) do thành viên N11 đảm nhiệm.
+ * Khi trận đấu kết thúc hẳn (Dừng chơi hoặc đối thủ dừng), N11 chỉ cần gọi finish()
+ * để quay lại OnlineListActivity của N04 bên dưới.
  */
 public class MatchPlayActivity extends BaseActivity {
 
-    public static final String EXTRA_MY_COLOR = "myColor";
-    public static final String EXTRA_OPPONENT = "opponent";
-
-    private TextView lblOpponentInfo;
-    private TextView lblMyColor;
-    private Button btnQuit;
-    private ChessBoardView boardView;
-
-    private String myColor;
-    private PlayerStat opponent;
+    public static final String EXTRA_START_INFO = "start_info";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_match_play);
-        setTitle(R.string.title_match);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setContentView(R.layout.n11_activity_match_play);
+        setTitle(R.string.n11_title_match);
 
-        myColor = getIntent().getStringExtra(EXTRA_MY_COLOR);
-        opponent = (PlayerStat) getIntent().getSerializableExtra(EXTRA_OPPONENT);
-
-        lblOpponentInfo = findViewById(R.id.lblOpponentInfo);
-        lblMyColor = findViewById(R.id.lblMyColor);
-        btnQuit = findViewById(R.id.btnQuit);
-        boardView = findViewById(R.id.boardView);
-
-        listen(ObjectWrapper.SERVER_END_GAME, ObjectWrapper.SERVER_RESTART_MATCH_SWAP_COLOR,
-                ObjectWrapper.SERVER_END_SESSION_MATCH,
-                ObjectWrapper.SERVER_INFORM_MOVE, ObjectWrapper.REPLY_MOVE_ILLEGAL);
-
-        btnQuit.setOnClickListener(v -> quit());
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                quit();
-            }
-        });
-
-        // TODO(N04, M4): cập nhật lblOpponentInfo, lblMyColor theo opponent, myColor
-        boardView.reset(myColor);
-    }
-
-    /** Đang chơi -> xác nhận -> sendData(QUIT_GAME, null); ván đã kết thúc -> bỏ qua (chờ ContinueDialog). */
-    private void quit() {
-        // TODO(N04, M4)
-    }
-
-    /** SERVER_RESTART_MATCH_SWAP_COLOR: đổi màu, cập nhật nhãn, đóng ContinueDialog, boardView.reset(myColor). */
-    public void swapColor(String newColor) {
-        // TODO(N04, M4)
+        TextView lblMatchInfo = findViewById(R.id.lblMatchInfo);
+        MatchStartInfo info = (MatchStartInfo) getIntent().getSerializableExtra(EXTRA_START_INFO);
+        if (info != null && info.getOpponent() != null) {
+            lblMatchInfo.setText("Phòng thi đấu (N11)\nQuân của bạn: " + info.getMyColor()
+                    + "\nĐối thủ: " + info.getOpponent().getUsername());
+        } else {
+            lblMatchInfo.setText("Phòng thi đấu (N11 sẽ hoàn thiện)");
+        }
+        // TODO(N11): đăng ký nhận các mã 21, 23, 24, 31, 32 rồi gọi myControl.flushPendingMatchMessages(this)
     }
 
     @Override
     public void receivedDataProcessing(ObjectWrapper data) {
-        switch (data.getPerformative()) {
-            case ObjectWrapper.SERVER_INFORM_MOVE:
-            case ObjectWrapper.REPLY_MOVE_ILLEGAL:
-                boardView.onServerMessage(data);
-                break;
-            default:
-                // TODO(N04, M4): SERVER_END_GAME -> boardView.setLocked(true); ContinueDialog.newInstance(GameResult).show(...)
-                //   SERVER_RESTART_MATCH_SWAP_COLOR -> swapColor((String) data.getData())
-                //   SERVER_END_SESSION_MATCH -> "OPPONENT_STOP" thì toast; đóng ContinueDialog; finish()
-                break;
-        }
+        // TODO(N11)
     }
 }

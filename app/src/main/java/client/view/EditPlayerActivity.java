@@ -1,48 +1,65 @@
 package client.view;
 
 import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
 import model.ObjectWrapper;
-import model.Player;
 import vn.edu.ptit.mobilechess.R;
 
-/** Chủ: N04. Hình 2.3. Nhận REPLY_EDIT_PLAYER. */
-public class EditPlayerActivity extends BaseActivity {
+/**
+ * Chủ: N04. Xem và sửa thông tin cá nhân (Hình 4.1, 4.2a, 4.5).
+ */
+public class EditPlayerActivity extends BaseActivity implements View.OnClickListener {
 
-    private TextView txtUsername;
-    private EditText txtName, txtEmail, txtTel;
+    private TextView lblUsername;
+    private EditText txtName;
+    private EditText txtEmail;
+    private EditText txtTel;
+    private Button btnUpdate;
+    private Button btnCancel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_player);
         setTitle(R.string.title_edit_player);
-        listen(ObjectWrapper.REPLY_EDIT_PLAYER);
 
-        txtUsername = findViewById(R.id.txtUsername);
+        lblUsername = findViewById(R.id.txtUsername);
         txtName = findViewById(R.id.txtName);
         txtEmail = findViewById(R.id.txtEmail);
         txtTel = findViewById(R.id.txtTel);
-        findViewById(R.id.btnUpdate).setOnClickListener(v -> update());
-        findViewById(R.id.btnCancel).setOnClickListener(v -> finish());
+        btnUpdate = findViewById(R.id.btnUpdate);
+        btnCancel = findViewById(R.id.btnCancel);
 
-        Player p = myControl.getMyPlayer();
-        if (p != null) {
-            txtUsername.setText(p.getUsername());
-            txtName.setText(p.getName());
-            txtEmail.setText(p.getEmail());
-            txtTel.setText(p.getTel());
-        }
+        btnUpdate.setOnClickListener(this);
+        btnCancel.setOnClickListener(this);
+
+        // [HƯỚNG DẪN - Hình 4.5, bước 3-6]
+        // 1. myControl.register(ObjectWrapper.REPLY_EDIT_PLAYER, this);
+        // 2. Lấy Player hiện tại từ myControl.getMyPlayer() và đổ username (cố định), name, email, tel lên form.
     }
 
-    private void update() {
-        // TODO(N04, M2): validateInput(); sendData(EDIT_PLAYER, player với name/email/tel mới)
+    /** TODO(N04 - Hình 4.5, bước 8): kiểm tra họ tên không trống, email hợp lệ nếu có nhập. */
+    public boolean validateInput() {
+        return true;
     }
 
     @Override
-    public void receivedDataProcessing(ObjectWrapper data) {
-        // TODO(N04, M2): "ok" -> cập nhật getMyPlayer(), toast, finish()
+    public void onClick(View v) {
+        // [HƯỚNG DẪN - Hình 4.5, bước 7-11]
+        // - btnUpdate: gọi validateInput(), đóng gói Player mới (name, email, tel),
+        //   gửi myControl.sendData(new ObjectWrapper(ObjectWrapper.EDIT_PLAYER, updatedPlayer)).
+        // - btnCancel: finish().
+    }
+
+    @Override
+    public void receivedDataProcessing(ObjectWrapper d) {
+        // [HƯỚNG DẪN - Hình 4.5, bước 18-20]
+        // Nếu REPLY_EDIT_PLAYER:
+        // - "ok": cập nhật name, email, tel vào myControl.getMyPlayer(), Toast "Cập nhật thành công", finish().
+        // - Ngược lại: Toast "Cập nhật thất bại".
     }
 }

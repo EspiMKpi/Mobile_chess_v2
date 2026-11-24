@@ -1,12 +1,10 @@
-# Phân quyền sở hữu file (xem docs/HOP_DONG_CHUNG.md).
-# Kiến trúc: :common (Java thuần dùng chung) + :server (Java trên PC) + :app (Android, Java).
-# TODO: thay @N04_GITHUB_USERNAME / @N11_GITHUB_USERNAME bằng tài khoản GitHub thật.
+# Phân quyền sở hữu file (theo cấu trúc phân chia mới: N04 trước trận, N11 trong trận & AI)
 # Dòng khớp sau cùng có hiệu lực.
 
-# ---- Mặc định: cả hai cùng review (build Gradle, tài liệu, hợp đồng chung) ----
+# ---- Mặc định: cả hai cùng review ----
 *                                                   @N04_GITHUB_USERNAME @N11_GITHUB_USERNAME
 
-# ---- N04 - Nguyễn Đại Dũng: tài khoản, online list, thách đấu, BXH, tầng mạng ----
+# ---- N04 - Nguyễn Đại Dũng: hạ tầng mạng, tài khoản, BXH, lịch sử, online list, thách đấu ----
 /common/src/main/java/model/                        @N04_GITHUB_USERNAME
 /server/                                            @N04_GITHUB_USERNAME
 /app/src/main/                                      @N04_GITHUB_USERNAME
@@ -14,21 +12,26 @@
 
 # ---- Dùng chung: đổi phải có cả 2 review ----
 /common/src/main/java/model/ObjectWrapper.java      @N04_GITHUB_USERNAME @N11_GITHUB_USERNAME
+/common/src/main/java/model/MatchStartInfo.java     @N04_GITHUB_USERNAME @N11_GITHUB_USERNAME
+/server/src/main/java/server/control/MatchSession.java @N04_GITHUB_USERNAME @N11_GITHUB_USERNAME
 /app/src/main/AndroidManifest.xml                   @N04_GITHUB_USERNAME @N11_GITHUB_USERNAME
 /*.gradle.kts                                       @N04_GITHUB_USERNAME @N11_GITHUB_USERNAME
 /*/build.gradle.kts                                 @N04_GITHUB_USERNAME @N11_GITHUB_USERNAME
 /gradle/                                            @N04_GITHUB_USERNAME @N11_GITHUB_USERNAME
 
-# ---- N11 - Nguyễn Tiến Dũng: nước đi, kết thúc theo luật/hết giờ, AI, luật cờ ----
+# ---- N11 - Nguyễn Tiến Dũng: toàn bộ trong trận đối kháng & chơi với máy (AI) ----
 /common/src/main/java/com/chess/                    @N11_GITHUB_USERNAME
 /common/src/test/                                   @N11_GITHUB_USERNAME
 /common/src/main/java/model/MatchMove.java          @N11_GITHUB_USERNAME
 /common/src/main/java/model/MoveRequest.java        @N11_GITHUB_USERNAME
 /common/src/main/java/model/MoveInfo.java           @N11_GITHUB_USERNAME
 /common/src/main/java/model/GameResult.java         @N11_GITHUB_USERNAME
+/server/src/main/java/server/control/GameRoom.java         @N11_GITHUB_USERNAME
 /server/src/main/java/server/control/ChessReferee.java     @N11_GITHUB_USERNAME
 /server/src/main/java/server/control/MoveTimeoutTask.java  @N11_GITHUB_USERNAME
 /server/src/main/java/server/dao/MatchMoveDAO.java         @N11_GITHUB_USERNAME
+/app/src/main/java/client/view/MatchPlayActivity.java      @N11_GITHUB_USERNAME
+/app/src/main/java/client/view/ContinueDialog.java         @N11_GITHUB_USERNAME
 /app/src/main/java/client/view/ChessBoardView.java         @N11_GITHUB_USERNAME
 /app/src/main/java/client/view/BoardCanvasView.java        @N11_GITHUB_USERNAME
 /app/src/main/java/client/view/PromotionDialog.java        @N11_GITHUB_USERNAME

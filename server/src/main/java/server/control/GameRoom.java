@@ -1,80 +1,55 @@
 package server.control;
 
-import model.Match;
-import model.MoveRequest;
+import model.MatchResult;
+import model.MatchStartInfo;
+import model.ObjectWrapper;
 
 /**
- * Chủ: N04. Vòng đời một cặp đấu: chờ trả lời thách đấu, phân màu, bắt đầu ván, kết thúc ván,
- * tiếp tục/đổi màu, đóng phòng. Phần luật cờ / nước đi / đồng hồ 30s nằm ở {@link ChessReferee} (N11).
+ * [PHẦN N11] Phòng đấu đối kháng thực hiện hợp đồng {@link MatchSession}.
  *
- * QUY TẮC KHÓA (hợp đồng chung): mọi thay đổi trạng thái phòng + trọng tài đều đồng bộ trên
- * CHÍNH ĐỐI TƯỢNG GameRoom này (synchronized method ở đây, synchronized (room) bên ChessReferee).
- * Không dùng khóa thứ hai -> không thể deadlock giữa luồng client và luồng Timer.
+ * N04 CHỈ tạo đối tượng GameRoom(myServer, challenger, challenged) và gọi start() khi B đồng ý thách đấu.
+ * Toàn bộ phần còn lại (luật cờ, đồng hồ 30 giây, xử lý nước đi, xin thua, lưu DB khi kết thúc ván,
+ * hỏi chơi tiếp / đổi màu) do thành viên N11 phụ trách.
  */
-public class GameRoom {
+public class GameRoom implements MatchSession {
 
     private final ServerCtr myServer;
-    private ServerCtr.ServerProcessing whitePlayer;
-    private ServerCtr.ServerProcessing blackPlayer;
-    private Match currentMatch;
-    private int continueCount;
-    private boolean playing;               // true từ startGame/ván mới tới endGame
-    private final ChessReferee referee;
+    private final ServerCtr.ServerProcessing challenger; // Ván 1 cầm ĐEN (đi sau)
+    private final ServerCtr.ServerProcessing challenged; // Ván 1 cầm TRẮNG (đi trước)
 
-    /** Tạo khi A thách đấu B đang rảnh. Ván 1: người thách đấu (A) cầm Đen, người được thách (B) cầm Trắng. */
-    public GameRoom(ServerCtr myServer, ServerCtr.ServerProcessing challenger,
+    public GameRoom(ServerCtr myServer,
+                    ServerCtr.ServerProcessing challenger,
                     ServerCtr.ServerProcessing challenged) {
         this.myServer = myServer;
-        this.blackPlayer = challenger;
-        this.whitePlayer = challenged;
-        this.referee = new ChessReferee(this);
+        this.challenger = challenger;
+        this.challenged = challenged;
     }
 
-    /** B trả lời lời mời (REPLY_CHALLENGE_DECISION). true -> startGame(); false -> closeRoom() + REPLY_CHALLENGE_REJECT cho A. */
-    public synchronized void receiveChallengeDecision(boolean accept) {
-        // TODO(N04)
+    @Override
+    public synchronized void start() {
+        // Khung bàn giao tối thiểu để test chuyển sang màn hình trận đấu của N11.
+        // N11 sẽ thay thế / mở rộng bằng ChessReferee, Match, đồng hồ 30s...
+        MatchStartInfo infoA = new MatchStartInfo(
+                MatchResult.BLACK,
+                myServer.getPlayerStat(challenger),
+                myServer.getPlayerStat(challenged));
+        MatchStartInfo infoB = new MatchStartInfo(
+                MatchResult.WHITE,
+                myServer.getPlayerStat(challenged),
+                myServer.getPlayerStat(challenger));
+        challenger.sendData(new ObjectWrapper(ObjectWrapper.SERVER_START_MATCH, infoA));
+        challenged.sendData(new ObjectWrapper(ObjectWrapper.SERVER_START_MATCH, infoB));
     }
 
-    /** Ván 1: new Match, referee.reset(), playing = true, broadcastOnlineList, gửi SERVER_START_MATCH cho 2 bên. */
-    public synchronized void startGame() {
-        // TODO(N04)
+    @Override
+    public synchronized void onPacket(ServerCtr.ServerProcessing sender, ObjectWrapper packet) {
+        // TODO(N11): xử lý SEND_MOVE, QUIT_GAME, REQUEST_CONTINUE_MATCH
+        // Khi kết thúc hẳn phòng đấu, N11 gọi: myServer.onMatchSessionEnded(this, challenger, challenged);
     }
 
-    /** Nhận SEND_MOVE từ ServerProcessing -> chuyển cho trọng tài (N11). */
-    public void handleMove(ServerCtr.ServerProcessing sender, MoveRequest req) {
-        referee.handleMove(sender, req);
+    @Override
+    public synchronized void onDisconnect(ServerCtr.ServerProcessing player) {
+        // TODO(N11): xử thua người mất kết nối, lưu ván nếu đang chơi, báo đối thủ và đóng phòng
+        myServer.onMatchSessionEnded(this, challenger, challenged);
     }
-
-    /**
-     * Kết thúc ván. Gọi bởi N04 (RESIGN, DISCONNECT) và N11 (CHECKMATE, STALEMATE, TIMEOUT).
-     * Idempotent: nếu !playing thì return ngay (tránh hết giờ và xin thua cùng lúc bị lưu 2 lần).
-     * @param winner người thắng, null nếu hòa
-     * @param reason một hằng số trong GameResult
-     */
-    public synchronized void endGame(ServerCtr.ServerProcessing winner, String reason) {
-        // TODO(N04): if (!playing) return; playing = false; referee.stopTimer(); ... (xem blueprint)
-    }
-
-    /** REQUEST_CONTINUE_MATCH. Đủ 2 "Tiếp tục" -> swapColor + ván mới; có 1 "Dừng" -> closeRoom + END_SESSION. */
-    public synchronized void receiveContinueDecision(ServerCtr.ServerProcessing sp, boolean accept) {
-        // TODO(N04)
-    }
-
-    public synchronized void swapColor() {
-        ServerCtr.ServerProcessing tmp = whitePlayer;
-        whitePlayer = blackPlayer;
-        blackPlayer = tmp;
-    }
-
-    /** referee.stopTimer(); 2 bên về IDLE, setRoom(null); myServer.removeRoom(this). */
-    public synchronized void closeRoom() {
-        // TODO(N04)
-    }
-
-    /** ChessReferee kiểm tra trước khi xử lý nước đi / hết giờ. */
-    public synchronized boolean isPlaying() { return playing; }
-
-    public ServerCtr.ServerProcessing getWhitePlayer() { return whitePlayer; }
-    public ServerCtr.ServerProcessing getBlackPlayer() { return blackPlayer; }
-    public Match getCurrentMatch() { return currentMatch; }
 }

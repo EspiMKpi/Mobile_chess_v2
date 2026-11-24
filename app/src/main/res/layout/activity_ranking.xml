@@ -1,25 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Chủ: N04. Dùng chung cho PlayerHistoryActivity (hình 2.5) và RankingActivity:
-     danh sách cuộn + dòng báo rỗng + nút Đóng. -->
+<!-- Chủ: N04. Bảng xếp hạng toàn bộ người chơi (Hình 4.1). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="16dp">
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="8dp"
+        android:text="Sắp theo: tổng điểm (giảm), TB điểm đối thủ (giảm), TB nước thắng (tăng), TB nước thua (giảm)"
+        android:textColor="#555555"
+        android:textSize="12sp" />
+
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerList"
+        android:id="@+id/tblRanking"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
 
     <TextView
-        android:id="@+id/txtEmpty"
+        android:id="@+id/lblEmpty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
         android:padding="16dp"
-        android:text="@string/empty_history"
+        android:text="@string/empty_ranking"
         android:visibility="gone" />
 
     <Button

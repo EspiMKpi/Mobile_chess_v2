@@ -1,20 +1,24 @@
 package client.view;
 
+// [HƯỚNG DẪN BƯỚC 5 - Dọn file cũ] Sau khi bạn làm xong Bước 2, Bước 3 (ClientCtr hết import ClientMainActivity)
+// và Bước 4, hãy XÓA file ClientMainActivity.java này (vì đã bỏ màn hình kết nối thủ công trong báo cáo .docx mới).
+
+import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 
+import model.IPAddress;
 import model.ObjectWrapper;
 import vn.edu.ptit.mobilechess.R;
 
-/**
- * Chủ: N04. Màn hình khởi động (LAUNCHER): nhập host/port server rồi [Kết nối].
- * Máy ảo: 10.0.2.2 · điện thoại thật: IP LAN của PC chạy server.
- */
-public class ClientMainActivity extends BaseActivity {
+/** Chủ: N04. Màn hình kết nối server (hình 4.2a). Máy ảo dùng 10.0.2.2, điện thoại thật dùng IP LAN của PC. */
+public class ClientMainActivity extends BaseActivity implements View.OnClickListener {
 
-    private EditText txtServerHost;
-    private EditText txtServerPort;
+    private EditText txtHost;
+    private EditText txtPort;
     private Button btnConnect;
 
     @Override
@@ -22,32 +26,49 @@ public class ClientMainActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_client_main);
         setTitle(R.string.title_connect);
-        myControl.init(this);
 
-        txtServerHost = findViewById(R.id.txtServerHost);
-        txtServerPort = findViewById(R.id.txtServerPort);
+        txtHost = findViewById(R.id.txtServerHost);
+        txtPort = findViewById(R.id.txtServerPort);
         btnConnect = findViewById(R.id.btnConnect);
-        btnConnect.setOnClickListener(v -> connect());
+        btnConnect.setOnClickListener(this);
     }
 
     @Override
-    protected boolean requiresConnection() {
-        return false;
-    }
+    public void onClick(View v) {
+        if (v.getId() != R.id.btnConnect) {
+            return;
+        }
+        String host = txtHost.getText().toString().trim();
+        if (host.isEmpty()) {
+            txtHost.setError("Nhập địa chỉ server");
+            return;
+        }
+        int port;
+        try {
+            port = Integer.parseInt(txtPort.getText().toString().trim());
+        } catch (NumberFormatException e) {
+            txtPort.setError("Cổng không hợp lệ");
+            return;
+        }
 
-    private void connect() {
-        // TODO(N04, M1): myControl.setServerAddress(new IPAddress(host, port));
-        //   chạy myControl.openConnection() trên luồng nền; xong runOnUiThread:
-        //   true -> startActivity(LoginActivity) · false -> toast("Không kết nối được server")
-    }
-
-    /** Đưa về trạng thái chưa kết nối (sau đăng xuất / mất kết nối). */
-    public void resetClient() {
-        // TODO(N04, M1)
+        btnConnect.setEnabled(false);
+        myControl.closeConnection();                          // bỏ kết nối cũ (nếu có)
+        myControl.setServerAddress(new IPAddress(host, port));
+        new Thread(() -> {
+            boolean ok = myControl.openConnection();           // mạng -> luồng nền
+            runOnUiThread(() -> {
+                btnConnect.setEnabled(true);
+                if (ok) {
+                    startActivity(new Intent(ClientMainActivity.this, LoginActivity.class));
+                } else {
+                    Toast.makeText(ClientMainActivity.this, "Không kết nối được server", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }).start();
     }
 
     @Override
-    public void receivedDataProcessing(ObjectWrapper data) {
-        // Màn hình này không nhận gói tin.
+    public void receivedDataProcessing(ObjectWrapper d) {
+        // Màn hình này không nhận gói tin nào.
     }
 }
