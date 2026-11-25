@@ -6,7 +6,7 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /**
  * Chủ: N11. Ván cờ với máy, chạy hoàn toàn trên điện thoại (Giao diện 3.2 báo cáo N11).

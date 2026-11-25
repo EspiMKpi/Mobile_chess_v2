@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import client.view.adapter.RankingAdapter;
 import model.ObjectWrapper;
 import model.PlayerRanking;
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /** Chủ: N04. Xem bảng xếp hạng toàn bộ người chơi (Hình 4.1, 4.8). */
 public class RankingActivity extends BaseActivity implements View.OnClickListener {

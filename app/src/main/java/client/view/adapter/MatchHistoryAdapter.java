@@ -16,7 +16,7 @@ import java.util.Locale;
 
 import model.Match;
 import model.MatchResult;
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /** Chủ: N04. Adapter lịch sử các ván đã chơi. */
 public class MatchHistoryAdapter extends RecyclerView.Adapter<MatchHistoryAdapter.ViewHolder> {

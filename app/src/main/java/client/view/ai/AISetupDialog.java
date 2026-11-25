@@ -10,7 +10,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.DialogFragment;
 
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /**
  * [PHẦN N11] Hộp thoại thiết lập ván với máy.

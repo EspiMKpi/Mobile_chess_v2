@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <!-- Nút ở góc trên bên phải -->
+    <Button
+        android:id="@+id/n11_btnExit"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="8dp"
+        android:text="@string/n11_exit"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/n11_btnResign"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="@string/n11_resign"
+        app:layout_constraintEnd_toStartOf="@id/n11_btnExit"
+        app:layout_constraintTop_toTopOf="@id/n11_btnExit" />
+
+    <!-- Người chơi Trắng (bên trái) -->
+    <ImageView
+        android:id="@+id/n11_imgWhite"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_marginStart="32dp"
+        android:layout_marginTop="8dp"
+        android:contentDescription="@string/n11_avatar_white"
+        android:src="@drawable/n11_ic_avatar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/n11_btnExit"
+        app:tint="#9E9E9E" />
+
+    <TextView
+        android:id="@+id/n11_txtNameWhite"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxWidth="120dp"
+        android:maxLines="1"
+        android:text="@string/n11_player_white"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="@id/n11_imgWhite"
+        app:layout_constraintStart_toStartOf="@id/n11_imgWhite"
+        app:layout_constraintTop_toBottomOf="@id/n11_imgWhite" />
+
+    <!-- Người chơi Đen (bên phải) -->
+    <ImageView
+        android:id="@+id/n11_imgBlack"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_marginEnd="32dp"
+        android:contentDescription="@string/n11_avatar_black"
+        android:src="@drawable/n11_ic_avatar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/n11_imgWhite"
+        app:tint="#424242" />
+
+    <TextView
+        android:id="@+id/n11_txtNameBlack"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxWidth="120dp"
+        android:maxLines="1"
+        android:text="@string/n11_player_black"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="@id/n11_imgBlack"
+        app:layout_constraintStart_toStartOf="@id/n11_imgBlack"
+        app:layout_constraintTop_toBottomOf="@id/n11_imgBlack" />
+
+    <!-- Đồng hồ của mỗi bên, nằm giữa 2 avatar (chuỗi ngang) -->
+    <TextView
+        android:id="@+id/n11_txtClockWhite"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:text="@string/n11_clock_default"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@id/n11_imgWhite"
+        app:layout_constraintEnd_toStartOf="@id/n11_txtClockBlack"
+        app:layout_constraintHorizontal_chainStyle="spread"
+        app:layout_constraintStart_toEndOf="@id/n11_imgWhite"
+        app:layout_constraintTop_toTopOf="@id/n11_imgWhite" />
+
+    <TextView
+        android:id="@+id/n11_txtClockBlack"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:text="@string/n11_clock_default"
+        android:textSize="22sp"
+        app:layout_constraintBottom_toBottomOf="@id/n11_imgWhite"
+        app:layout_constraintEnd_toStartOf="@id/n11_imgBlack"
+        app:layout_constraintStart_toEndOf="@id/n11_txtClockWhite"
+        app:layout_constraintTop_toTopOf="@id/n11_imgWhite" />
+
+    <!-- Bàn cờ: rộng bằng màn hình, luôn vuông -->
+    <client.view.BoardCanvasView
+        android:id="@+id/n11_boardCanvas"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/n11_txtNameWhite" />
+
+    <!-- Các nước đã đi -->
+    <TextView
+        android:id="@+id/n11_moveLogTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp"
+        android:text="@string/n11_move_log_title"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/n11_boardCanvas" />
+
+    <TextView
+        android:id="@+id/n11_moveLog"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:fontFamily="monospace"
+        android:lineSpacingExtra="4dp"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="12dp"
+        android:scrollbars="vertical"
+        android:textSize="15sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/n11_moveLogTitle"
+        tools:text="1.  e4     e5\n2.  Nf3    Nc6" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

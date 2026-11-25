@@ -9,7 +9,7 @@ import android.widget.TextView;
 
 import model.ObjectWrapper;
 import model.Player;
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /** Chủ: N04. Xem và sửa thông tin cá nhân (Hình 4.1, 4.5). */
 public class EditPlayerActivity extends BaseActivity implements View.OnClickListener {

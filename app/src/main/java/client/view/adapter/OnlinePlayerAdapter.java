@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Locale;
 
 import model.PlayerStat;
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /** Chủ: N04. Adapter danh sách người chơi trực tuyến. */
 public class OnlinePlayerAdapter extends RecyclerView.Adapter<OnlinePlayerAdapter.ViewHolder> {

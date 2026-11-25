@@ -11,6 +11,9 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -19,9 +22,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Mobile_chess_v2"
-
-// :common - Java thuần dùng chung (model + luật cờ) · :server - Java trên PC · :app - Android
+rootProject.name = "covua"
+include(":app")
 include(":common")
 include(":server")
-include(":app")

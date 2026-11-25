@@ -1,7 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Chủ: N11. Chuỗi riêng của phần nước đi / AI. -->
 <resources>
+    <string name="n11_move_log_title">Các nước đã đi</string>
+
+    <!-- Người chơi, đồng hồ, nút -->
+    <string name="n11_white">Trắng</string>
+    <string name="n11_black">Đen</string>
+    <string name="n11_player_white">Người chơi 1 (Trắng)</string>
+    <string name="n11_player_black">Người chơi 2 (Đen)</string>
+    <string name="n11_avatar_white">Ảnh người chơi Trắng</string>
+    <string name="n11_avatar_black">Ảnh người chơi Đen</string>
+    <string name="n11_clock_default">15:00</string>
+    <string name="n11_resign">Đầu hàng</string>
+    <string name="n11_exit">Thoát</string>
+
+    <!-- Hộp thoại -->
+    <string name="n11_yes">Đồng ý</string>
+    <string name="n11_no">Hủy</string>
+    <string name="n11_ok">Đóng</string>
+    <string name="n11_resign_confirm">Bên %1$s chắc chắn muốn đầu hàng?</string>
+    <string name="n11_exit_title">Thoát ván</string>
+    <string name="n11_exit_confirm">Ván cờ đang diễn ra. Bạn có chắc muốn thoát?</string>
+    <string name="n11_game_over_title">Kết thúc ván</string>
+    <string name="n11_win_checkmate">%1$s thắng – Chiếu bí!</string>
+    <string name="n11_draw_stalemate">Hòa – Hết nước đi</string>
+    <string name="n11_win_timeout">%1$s thắng – bên %2$s hết giờ</string>
+    <string name="n11_win_resign">%1$s thắng – bên %2$s đầu hàng</string>
+
+    <!-- Phòng đấu online (MatchPlayActivity, ContinueDialog) -->
     <string name="n11_title_match">Phòng thi đấu</string>
+    <string name="n11_clock_move_default">0:30</string>
+    <string name="n11_you">%1$s (Bạn)</string>
+    <string name="n11_resign_confirm_online">Bạn chắc chắn muốn đầu hàng ván này?</string>
+    <string name="n11_exit_confirm_online">Thoát lúc này sẽ bị xử thua ván đang chơi. Bạn có chắc muốn thoát?</string>
+    <string name="n11_illegal_title">Nước đi không hợp lệ</string>
+    <string name="n11_disconnected">Mất kết nối, chưa gửi được nước đi</string>
+    <string name="n11_sync_error">Bàn cờ không khớp với server</string>
+    <string name="n11_opponent_stopped">Đối thủ đã dừng chơi</string>
+    <string name="n11_continue">Tiếp tục</string>
+    <string name="n11_stop">Dừng chơi</string>
+    <string name="n11_continue_question">Bạn có muốn chơi tiếp ván sau không?\n(Ván sau sẽ đổi màu quân và lượt đi)</string>
+    <string name="n11_waiting_opponent">Đang chờ đối thủ chọn…</string>
+    <string name="n11_leaving">Đang rời phòng…</string>
+    <string name="n11_result_win">BẠN THẮNG (+1.0 điểm)</string>
+    <string name="n11_result_draw">HÒA (+0.5 điểm)</string>
+    <string name="n11_result_lose">BẠN THUA (+0 điểm)</string>
+    <string name="n11_reason_checkmate">Chiếu bí!</string>
+    <string name="n11_reason_stalemate">Hết nước đi</string>
+    <string name="n11_reason_timeout">Hết giờ 30 giây</string>
+    <string name="n11_reason_resign">Xin thua</string>
+    <string name="n11_reason_disconnect">Mất kết nối</string>
+
+    <!-- Chơi với máy (khung của N04, N11 làm sau) -->
     <string name="n11_title_ai_match">Luyện tập với máy</string>
     <string name="n11_ai_todo">Ván với máy – N11 sẽ hoàn thiện (Giao diện 3.2)</string>
+
+    <!-- Phong cấp -->
+    <string name="n11_promotion_title">Phong cấp quân Tốt</string>
+    <string-array name="n11_promotion_labels">
+        <item>Hậu</item>
+        <item>Xe</item>
+        <item>Tượng</item>
+        <item>Mã</item>
+    </string-array>
 </resources>

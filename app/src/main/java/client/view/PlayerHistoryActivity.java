@@ -14,7 +14,7 @@ import client.view.adapter.MatchHistoryAdapter;
 import model.Match;
 import model.ObjectWrapper;
 import model.Player;
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /** Chủ: N04. Xem lịch sử các trận đấu (Hình 4.1, 4.7). */
 public class PlayerHistoryActivity extends BaseActivity implements View.OnClickListener {

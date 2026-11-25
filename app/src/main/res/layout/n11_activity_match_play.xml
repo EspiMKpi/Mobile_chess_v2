@@ -1,54 +1,151 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- [PHẦN N11 THAY THẾ] Giao diện giả lập phòng đấu để N04 tự kiểm thử luồng bàn giao và quay về Lobby. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Chủ: N11. Phòng đấu online (MatchPlayActivity): bố cục giống màn hình ván 2 người (activity_main)
+     nút Đầu hàng / Thoát · 2 avatar + tên · đồng hồ 30 giây mỗi nước ở giữa · bàn cờ · các nước đã đi. -->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:padding="20dp">
-
-    <TextView
-        android:id="@+id/lblMatchInfo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:paddingBottom="24dp"
-        android:textSize="16sp" />
+    tools:context="client.view.MatchPlayActivity">
 
     <Button
-        android:id="@+id/btnSimulateResign"
-        android:layout_width="match_parent"
+        android:id="@+id/n11_btnExit"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Xin thua (giả lập kết thúc ván)" />
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="8dp"
+        android:text="@string/n11_exit"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <LinearLayout
-        android:id="@+id/layoutContinue"
-        android:layout_width="match_parent"
+    <Button
+        android:id="@+id/n11_btnResign"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:orientation="vertical"
-        android:visibility="gone">
+        android:layout_marginEnd="8dp"
+        android:text="@string/n11_resign"
+        app:layout_constraintEnd_toStartOf="@id/n11_btnExit"
+        app:layout_constraintTop_toTopOf="@id/n11_btnExit" />
 
-        <TextView
-            android:id="@+id/lblEndResult"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:paddingBottom="12dp"
-            android:textSize="15sp"
-            android:textStyle="bold" />
+    <!-- Bên Trắng (trái) -->
+    <ImageView
+        android:id="@+id/n11_imgWhite"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_marginStart="32dp"
+        android:layout_marginTop="4dp"
+        android:contentDescription="@string/n11_avatar_white"
+        android:src="@drawable/n11_ic_avatar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/n11_btnExit"
+        app:tint="#9E9E9E" />
 
-        <Button
-            android:id="@+id/btnContinueMatch"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Tiếp tục ván mới (đổi màu)" />
+    <TextView
+        android:id="@+id/n11_txtNameWhite"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxWidth="120dp"
+        android:maxLines="1"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="@id/n11_imgWhite"
+        app:layout_constraintStart_toStartOf="@id/n11_imgWhite"
+        app:layout_constraintTop_toBottomOf="@id/n11_imgWhite"
+        tools:text="tranvanb (Bạn)" />
 
-        <Button
-            android:id="@+id/btnStopMatch"
-            style="?attr/borderlessButtonStyle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Dừng chơi (về danh sách online)" />
-    </LinearLayout>
-</LinearLayout>
+    <!-- Bên Đen (phải) -->
+    <ImageView
+        android:id="@+id/n11_imgBlack"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_marginEnd="32dp"
+        android:contentDescription="@string/n11_avatar_black"
+        android:src="@drawable/n11_ic_avatar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/n11_imgWhite"
+        app:tint="#424242" />
+
+    <TextView
+        android:id="@+id/n11_txtNameBlack"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxWidth="120dp"
+        android:maxLines="1"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="@id/n11_imgBlack"
+        app:layout_constraintStart_toStartOf="@id/n11_imgBlack"
+        app:layout_constraintTop_toBottomOf="@id/n11_imgBlack"
+        tools:text="nguyend" />
+
+    <!-- Đồng hồ 30 giây mỗi nước của từng bên, nằm giữa 2 avatar -->
+    <TextView
+        android:id="@+id/n11_txtClockWhite"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:text="@string/n11_clock_move_default"
+        android:textSize="22sp"
+        app:layout_constraintBottom_toBottomOf="@id/n11_imgWhite"
+        app:layout_constraintEnd_toStartOf="@id/n11_txtClockBlack"
+        app:layout_constraintHorizontal_chainStyle="spread"
+        app:layout_constraintStart_toEndOf="@id/n11_imgWhite"
+        app:layout_constraintTop_toTopOf="@id/n11_imgWhite" />
+
+    <TextView
+        android:id="@+id/n11_txtClockBlack"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:text="@string/n11_clock_move_default"
+        android:textSize="22sp"
+        app:layout_constraintBottom_toBottomOf="@id/n11_imgWhite"
+        app:layout_constraintEnd_toStartOf="@id/n11_imgBlack"
+        app:layout_constraintStart_toEndOf="@id/n11_txtClockWhite"
+        app:layout_constraintTop_toTopOf="@id/n11_imgWhite" />
+
+    <!-- Bàn cờ -->
+    <client.view.BoardCanvasView
+        android:id="@+id/n11_boardCanvas"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/n11_txtNameWhite" />
+
+    <!-- Các nước đã đi -->
+    <TextView
+        android:id="@+id/n11_moveLogTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="4dp"
+        android:text="@string/n11_move_log_title"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/n11_boardCanvas" />
+
+    <TextView
+        android:id="@+id/n11_moveLog"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:fontFamily="monospace"
+        android:lineSpacingExtra="4dp"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="12dp"
+        android:scrollbars="vertical"
+        android:textSize="15sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/n11_moveLogTitle"
+        tools:text="1.  e4      e5\n2.  Nf3     Nc6" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

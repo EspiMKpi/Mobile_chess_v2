@@ -9,7 +9,7 @@ import android.widget.Toast;
 
 import model.ObjectWrapper;
 import model.Player;
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /** Chủ: N04. Đăng ký tài khoản (Hình 4.1, 4.3). */
 public class RegisterActivity extends BaseActivity implements View.OnClickListener {

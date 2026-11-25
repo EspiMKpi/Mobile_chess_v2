@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Locale;
 
 import model.PlayerRanking;
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /** Chủ: N04. Adapter bảng xếp hạng toàn bộ người chơi. */
 public class RankingAdapter extends RecyclerView.Adapter<RankingAdapter.ViewHolder> {

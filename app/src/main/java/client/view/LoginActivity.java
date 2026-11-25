@@ -9,7 +9,7 @@ import android.widget.Toast;
 
 import model.ObjectWrapper;
 import model.Player;
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /** Chủ: N04. Màn hình đầu tiên của ứng dụng: Đăng nhập (Hình 4.1, 4.4). */
 public class LoginActivity extends BaseActivity implements View.OnClickListener {

@@ -6,7 +6,7 @@ import android.widget.Button;
 import android.widget.EditText;
 
 import model.ObjectWrapper;
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /** Chủ: N04. Đổi mật khẩu (Hình 4.1, 4.6). */
 public class ChangePasswordActivity extends BaseActivity implements View.OnClickListener {

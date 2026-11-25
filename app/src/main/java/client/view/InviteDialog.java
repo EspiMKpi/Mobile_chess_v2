@@ -18,7 +18,7 @@ import client.control.ClientCtr;
 import model.MatchStartInfo;
 import model.ObjectWrapper;
 import model.PlayerStat;
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /** Chủ: N04. Hộp thoại nhận lời mời thách đấu ở bất kỳ màn hình nào (Hình 4.9, 4.11, 4.12). */
 public class InviteDialog extends DialogFragment implements DataReceiver, View.OnClickListener {

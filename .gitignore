@@ -1,28 +1,16 @@
-# Gradle / Android build output
-.gradle/
-build/
-.kotlin/
-captures/
-*.apk
-*.aab
-*.class
-
-# Máy cục bộ (đường dẫn Android SDK)
-local.properties
-
-# Database & local configurations with secrets
-server/config/db.properties
-!server/config/db.properties.example
-
-# IDE / Editor files
-.idea/
 *.iml
-.vscode/
-.settings/
-.project
-.classpath
-
-# OS / temp files
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
 .DS_Store
-Thumbs.db
-*.log
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+build/

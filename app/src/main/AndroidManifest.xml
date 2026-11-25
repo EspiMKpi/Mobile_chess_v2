@@ -1,15 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Chủ: N04. Khai báo sẵn mọi Activity của N04 và N11 (khóa dọc). -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- Gộp manifest của N04 (n04/full) với project covua.
+     Màn hình mở đầu: LoginActivity (tự tìm server, đăng nhập). Mọi Activity khóa dọc. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MobileChess">
 
+        <!-- N04 -->
         <activity
             android:name="client.view.LoginActivity"
             android:exported="true"
@@ -26,8 +33,17 @@
         <activity android:name="client.view.PlayerHistoryActivity" android:screenOrientation="portrait" />
         <activity android:name="client.view.RankingActivity" android:screenOrientation="portrait" />
 
-        <!-- N11: Đấu đối kháng trong trận & Chơi với máy -->
+        <!-- N11: đấu đối kháng trong trận & chơi với máy -->
         <activity android:name="client.view.MatchPlayActivity" android:screenOrientation="portrait" />
         <activity android:name="client.view.ai.AIMatchActivity" android:screenOrientation="portrait" />
+
+        <!-- N11: ván 2 người chơi chung máy (không cần server) -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Covua"
+            android:windowSoftInputMode="adjustResize" />
     </application>
+
 </manifest>

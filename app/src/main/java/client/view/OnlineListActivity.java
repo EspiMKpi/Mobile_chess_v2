@@ -18,7 +18,7 @@ import client.view.ai.AISetupDialog;
 import model.ObjectWrapper;
 import model.Player;
 import model.PlayerStat;
-import vn.edu.ptit.mobilechess.R;
+import ptit.e23cnpm01.nguyentiendung.covua.R;
 
 /** Chủ: N04. Danh sách người chơi trực tuyến & điều hướng (Hình 4.1, 4.9, 4.11). */
 public class OnlineListActivity extends BaseActivity implements View.OnClickListener {
